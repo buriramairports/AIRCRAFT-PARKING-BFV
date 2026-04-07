@@ -287,51 +287,86 @@
   }
 
 function animate() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height); checkSafety();
+    ctx.clearRect(0, 0, canvas.width, canvas.height); 
+    checkSafety();
     
     // --- วาดหลุมจอด (Stands) ---
     stands.forEach(s => {
       const p = mToP(s.mX, s.mY), w = s.Width * scale, l = s.Length * scale;
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate((s.Heading || 0) * Math.PI / 180);
-      ctx.strokeStyle = s.Status === 'active' ? '#94a3b8' : '#ef4444'; ctx.setLineDash([4, 4]); ctx.strokeRect(-w/2, -l/2, w, l);
-      if(s.Status === 'closed') { ctx.fillStyle = 'rgba(239, 68, 68, 0.1)'; ctx.fillRect(-w/2, -l/2, w, l); }
-      ctx.beginPath(); ctx.setLineDash([]); ctx.strokeStyle = '#cbd5e1'; ctx.moveTo(0, -l/2); ctx.lineTo(0, l/2); ctx.stroke();
+      ctx.save(); 
+      ctx.translate(p.x, p.y); 
+      ctx.rotate((s.Heading || 0) * Math.PI / 180);
       
-      const fs = Math.max(9, 14 * (zoomPercent/100)); ctx.fillStyle = s.ParentID ? "#334155" : "#0f172a"; 
-      const label = `${s.StandID} (${s.MaxCode})`; const tw = ctx.measureText(label).width;
+      // 1. วาดเส้นขอบหลุม
+      ctx.strokeStyle = s.Status === 'active' ? '#94a3b8' : '#ef4444'; 
+      ctx.setLineDash([5, 5]); 
+      ctx.strokeRect(-w/2, -l/2, w, l);
+      if(s.Status === 'closed') { 
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.1)'; 
+          ctx.fillRect(-w/2, -l/2, w, l); 
+      }
+      
+      // 2. วาดเส้นกึ่งกลางสีเหลือง (Centerline)
+      ctx.beginPath(); 
+      ctx.setLineDash(s.ParentID ? [10, 5] : []); // หลุมหลักเส้นทึบ / หลุมรองเส้นปะ
+      ctx.strokeStyle = "#facc15"; 
+      ctx.lineWidth = 3;
+      const t1PixelY = (l/2) - (Number(s.TMark1 || 15) * scale);
+      ctx.moveTo(0, -l/2); // เริ่มจากด้านบน (Tail)
+      ctx.lineTo(0, t1PixelY); // ลากลงมาถึงจุด T-MARK 1
+      ctx.stroke();
+
+      // 3. วาดขีด T-MARK (T1 และ T2)
+      ctx.setLineDash([]); 
+      ctx.lineWidth = 2;
+      [s.TMark1, s.TMark2].forEach(tm => {
+          const tmPixelY = (l/2) - (Number(tm || 15) * scale);
+          ctx.beginPath();
+          ctx.moveTo(-5 * scale, tmPixelY);
+          ctx.lineTo(5 * scale, tmPixelY);
+          ctx.stroke();
+      });
+
+      // 4. วาดป้ายชื่อหลุมจอด (Badge)
+      const fs = Math.max(9, 14 * (zoomPercent/100));
+      ctx.font = `bold ${fs}px Inter`;
+      const label = `${s.StandID} (${s.MaxCode})`;
+      const tw = ctx.measureText(label).width;
       const lblY = s.ParentID ? (-l/2 - fs * 1.5) : (-l/2 - fs * 3.5);
+      ctx.fillStyle = s.ParentID ? "#334155" : "#0f172a";
       ctx.fillRect(-tw/2 - 10, lblY - fs, tw + 20, fs * 1.8);
-      ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.fillText(label, 0, lblY + (fs * 0.2));
+      ctx.fillStyle = "white"; ctx.textAlign = "center";
+      ctx.fillText(label, 0, lblY + (fs * 0.2));
       
-      // ส่วนที่เพิ่ม: วาดตัวเลขขนาดหลุมจอด (Width x Length)
-      ctx.fillStyle = "#64748b"; ctx.font = `bold ${fs*0.8}px Inter`;
+      // 5. วาดขนาดหลุมจอด (Width x Length)
+      ctx.fillStyle = "#64748b"; ctx.font = `bold ${fs*0.7}px Inter`;
       ctx.fillText(`${s.Width} x ${s.Length} ม.`, 0, l/2 + fs + 5);
+      
       ctx.restore();
     });
 
-    // --- วาดเส้นมิติระยะห่างระหว่างปีกเครื่องที่อยู่ติดกัน (Wingtip Lines) ---
-    // จัดเรียงเครื่องบินตามพิกัด X จากขวาไปซ้าย
+    // --- วาดเส้นมิติระยะห่างปลายปีก (Wingtip Lines) ---
     let sortedAC = [...placedAircraft].sort((a,b) => b.mX - a.mX);
-    ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = "#475569";
+    ctx.setLineDash([4, 4]); ctx.lineWidth = 1; ctx.strokeStyle = "#475569";
     for(let i=0; i < sortedAC.length - 1; i++) {
         const acR = sortedAC[i], acL = sortedAC[i+1];
         const distM = Math.abs(acR.mX - acL.mX);
         const clearM = distM - (acR.WingSpan/2 + acL.WingSpan/2);
         
-        // วาดเส้นประเชื่อมระหว่างปีกที่ใกล้กัน
-        const pR = mToP(acR.mX - acR.WingSpan/2, acR.mY);
-        const pL = mToP(acL.mX + acL.WingSpan/2, acL.mY);
-        ctx.beginPath(); ctx.moveTo(pR.x, pR.y); ctx.lineTo(pL.x, pL.y); ctx.stroke();
-        
-        // วาดตัวเลขระยะห่างเมตร
-        ctx.fillStyle = "#1e293b"; ctx.font = "bold 11px monospace"; ctx.textAlign="center";
-        ctx.fillText(clearM.toFixed(1) + "m", (pR.x + pL.x)/2, pR.y - 8);
+        if (distM < 80) { // วาดเฉพาะลำที่อยู่โซนใกล้กัน
+            const pR = mToP(acR.mX - acR.WingSpan/2, acR.mY);
+            const pL = mToP(acL.mX + acL.WingSpan/2, acL.mY);
+            ctx.beginPath(); ctx.moveTo(pR.x, pR.y); ctx.lineTo(pL.x, pL.y); ctx.stroke();
+            ctx.fillStyle = "#1e293b"; ctx.font = "bold 11px monospace"; ctx.textAlign="center";
+            ctx.fillText(clearM.toFixed(1) + "m", (pR.x + pL.x)/2, pR.y - 8);
+        }
     }
     ctx.setLineDash([]);
 
     // วาดเครื่องบินทุกลำ
     placedAircraft.forEach((ac, i) => drawAircraft(ac, i === selectedIdx));
     if (ghostAircraft) { ctx.globalAlpha = 0.5; drawAircraft(ghostAircraft, true); ctx.globalAlpha = 1.0; }
+    
     requestAnimationFrame(animate);
   }
 
@@ -379,8 +414,40 @@ function animate() {
   function openAircraftModal() { document.getElementById('modalAircraft').classList.add('active'); }
   async function uiDeleteStand(id) { if(confirm('ลบหลุมจอด '+id+'?')) { await apiCall('deleteStand', {id}); await loadData(); } }
   async function uiDeleteAircraft(id) { if(confirm('ลบประเภท '+id+'?')) { await apiCall('deleteAircraftType', {id}); await loadData(); } }
-  function editStand(i) { const s = stands[i]; document.getElementById('st-id').value = s.StandID; document.getElementById('st-w').value = s.Width; document.getElementById('st-l').value = s.Length; document.getElementById('st-t1').value = s.TMark1 || 15; document.getElementById('st-t2').value = s.TMark2 || 20; document.getElementById('st-tail').value = s.TailLimit || 5; document.getElementById('st-heading').value = s.Heading || 0; document.getElementById('st-code').value = s.MaxCode; document.getElementById('st-parent').value = s.ParentID || ""; document.getElementById('st-status').value = s.Status; document.getElementById('modalStand').classList.add('active'); }
-  function editAircraft(i) { const ac = aircraftTypes[i]; document.getElementById('ac-m').value = ac.Model; document.getElementById('ac-s').value = ac.WingSpan; document.getElementById('ac-l').value = ac.Length; document.getElementById('ac-nmg').value = ac.NoseToMainGear; document.getElementById('ac-sa').value = ac.SteeringAngle; document.getElementById('ac-jb').value = ac.JetBlast; document.getElementById('ac-code').value = ac.ICAO; document.getElementById('ac-col').value = ac.Color; document.getElementById('modalAircraft').classList.add('active'); }
+  function editStand(i) {
+    const s = stands[i];
+    if (!s) return;
+    document.getElementById('st-id').value = s.StandID;
+    document.getElementById('st-w').value = s.Width;
+    document.getElementById('st-l').value = s.Length;
+    document.getElementById('st-heading').value = s.Heading || 0;
+    document.getElementById('st-code').value = s.MaxCode;
+    document.getElementById('st-status').value = s.Status || 'active';
+    document.getElementById('st-parent').value = s.ParentID || "";
+    document.getElementById('st-offset').value = s.OffsetX || 0;
+    document.getElementById('st-t1').value = s.TMark1 || 15;
+    document.getElementById('st-t2').value = s.TMark2 || 20;
+    document.getElementById('st-tail').value = s.TailLimit || 5;
+    
+    // บังคับเปิด Modal โดยใช้ class 'active' ตามสไตล์ v17
+    document.getElementById('modalStand').classList.add('active');
+    updateParentDropdown();
+  }
+  function editAircraft(i) {
+    const ac = aircraftTypes[i];
+    if (!ac) return;
+    document.getElementById('ac-m').value = ac.Model;
+    document.getElementById('ac-s').value = ac.WingSpan;
+    document.getElementById('ac-l').value = ac.Length;
+    document.getElementById('ac-nmg').value = ac.NoseToMainGear;
+    document.getElementById('ac-sa').value = ac.SteeringAngle || 45;
+    document.getElementById('ac-jb').value = ac.JetBlast || 40;
+    document.getElementById('ac-code').value = ac.ICAO;
+    document.getElementById('ac-col').value = ac.Color || '#0ea5e9';
+    
+    // บังคับเปิด Modal โดยใช้ class 'active'
+    document.getElementById('modalAircraft').classList.add('active');
+  }
   async function uiSaveStand() { const d = { StandID: document.getElementById('st-id').value, Width: Number(document.getElementById('st-w').value), Length: Number(document.getElementById('st-l').value), TMark1: Number(document.getElementById('st-t1').value), TMark2: Number(document.getElementById('st-t2').value), TailLimit: Number(document.getElementById('st-tail').value), Heading: Number(document.getElementById('st-heading').value), MaxCode: document.getElementById('st-code').value, ParentID: document.getElementById('st-parent').value, OffsetX: Number(document.getElementById('st-offset').value), Status: document.getElementById('st-status').value }; await apiCall('saveStand', d); closeModal('modalStand'); await loadData(); }
   async function uiSaveAircraft() { const d = { Model: document.getElementById('ac-m').value, WingSpan: Number(document.getElementById('ac-s').value), Length: Number(document.getElementById('ac-l').value), NoseToMainGear: Number(document.getElementById('ac-nmg').value), SteeringAngle: Number(document.getElementById('ac-sa').value), JetBlast: Number(document.getElementById('ac-jb').value), ICAO: document.getElementById('ac-code').value, Color: document.getElementById('ac-col').value }; await apiCall('saveAircraftType', d); closeModal('modalAircraft'); await loadData(); }
   function pickGhost(i) { ghostAircraft = { ...aircraftTypes[i], heading: 180, mX: 0, mY: 0, swing: false }; }
