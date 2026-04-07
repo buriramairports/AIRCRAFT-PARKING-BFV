@@ -184,47 +184,70 @@
 
 function checkSafety() {
     placedAircraft.forEach((ac, idx) => {
-      let safe = true, error = "";
-      
-      // 1. ตรวจสอบขนาดหลุมจอด (Stand Capacity)
-      stands.forEach(s => {
-        if (Math.abs(ac.mX - s.mX) < 1) { 
-          if (ac.ICAO.charCodeAt(0) > s.MaxCode.charCodeAt(0)) {
-            safe = false; error = `Aircraft too large for Stand ${s.StandID}`;
-          }
+        let safe = true;
+        let error = "";
+
+        // --- 1. ตรวจสอบขอบเขตหลุมจอด (Stand Boundary & Capacity) ---
+        // เช็คว่าจุดศูนย์กลางเครื่องบินอยู่ในสี่เหลี่ยมของหลุมจอดใดหลุมจอดหนึ่งหรือไม่
+        let currentStand = stands.find(s => {
+            const w = s.Width;
+            const l = s.Length;
+            // ตรวจสอบว่าพิกัด เมตร (mX, mY) ของเครื่อง อยู่ภายใน (Width x Length) ของหลุมหรือไม่
+            return ac.mX >= (s.mX - w/2) && ac.mX <= (s.mX + w/2) &&
+                   ac.mY >= (s.mY - l/2) && ac.mY <= (s.mY + l/2);
+        });
+        
+        if (currentStand) {
+            // ถ้าอยู่ในหลุม: ตรวจสอบขนาด ICAO Code
+            if (ac.ICAO.charCodeAt(0) > currentStand.MaxCode.charCodeAt(0)) {
+                safe = false;
+                error = `Aircraft too large for Stand ${currentStand.StandID}`;
+            }
+        } else {
+            // ถ้าไม่อยู่ในหลุมจอดใดๆ เลย: ให้ถือว่าไม่ปลอดภัย (DANGER)
+            safe = false;
+            error = "Outside Stand Boundary";
         }
-      });
 
-      // 2. ตรวจสอบการทับซ้อนขณะจอด (Static Wingtip Clearance)
-      placedAircraft.forEach((other, oIdx) => {
-        if (idx === oIdx) return;
-        const dist = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
-        const minReq = (ac.WingSpan/2) + (other.WingSpan/2) + safetyRules[ac.ICAO];
-        if (dist < minReq) { safe = false; error = "Wingtip clearance violation"; }
+        // --- 2. ตรวจสอบความปลอดภัยเทียบกับเครื่องบินลำอื่น ---
+        placedAircraft.forEach((other, oIdx) => {
+            if (idx === oIdx) return; // ไม่เช็คกับตัวเอง
 
-        // 3. [เพิ่มใหม่] ตรวจสอบการชนขณะ Swing-out (Dynamic Check)
-        if (ac.swing) {
-            const w = ac.WingSpan * scale, l = ac.Length * scale, mb = ac.NoseToMainGear * scale;
-            const pivotRX = (ac.mX + (ac.WingSpan/4)), pivotRY = (ac.mY + ac.NoseToMainGear); // จุดหมุนขวา
-            const pivotLX = (ac.mX - (ac.WingSpan/4)); // จุดหมุนซ้าย
-            const turnRadius = Math.hypot(ac.WingSpan/2 + ac.WingSpan/4, ac.Length - ac.NoseToMainGear);
+            // ระยะห่างระหว่างจุดศูนย์กลางเครื่อง (เมตร)
+            const dist = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
 
-            // เช็คว่าจุดใดๆ ของเครื่องลำข้างเคียง อยู่ในรัศมีการกวาดหรือไม่
-            const distToOther = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
-            if (distToOther < turnRadius + (other.WingSpan/2)) {
-                // ถ้าเครื่องข้างๆ อยู่ในระยะกวาดของปีก
-                // (หมายเหตุ: นี่คือการคำนวณเบื้องต้น ระบบจะเตือนเพื่อให้ระวังการทำ Swing-out)
-                if (error === "") { // ถ้ายังไม่มี Error เรื่องจอดนิ่ง ให้บอกเรื่องวงเลี้ยว
-                    // เรายังอนุญาตให้เป็นสีเขียวถ้าจอดนิ่งผ่าน แต่จะเตือนใน Inspector แทน
-                    // หรือถ้าคุณต้องการให้แดงเลย ให้ใส่ safe = false ตรงนี้ครับ
+            // 2.1 ตรวจสอบระยะจอดนิ่ง (Static Wingtip Clearance)
+            const minStaticGap = (ac.WingSpan / 2) + (other.WingSpan / 2) + safetyRules[ac.ICAO];
+            
+            if (dist < minStaticGap) {
+                safe = false;
+                error = "Wingtip clearance violation";
+            }
+
+            // 2.2 ตรวจสอบการชนขณะเลี้ยว (Dynamic Swing-out Check)
+            // จะเช็คเฉพาะลำที่เปิด Swing-out และสถานะจอดนิ่งยังปลอดภัยอยู่
+            if (ac.swing && safe) { 
+                const pivotOffset = ac.WingSpan / 4; 
+                const tailToMainGear = ac.Length - ac.NoseToMainGear;
+                
+                // รัศมีการกวาดของปีกด้านนอก
+                const sweptRadius = Math.hypot((ac.WingSpan / 2) + pivotOffset, tailToMainGear);
+
+                // ระยะขอบนอกสุดของปีกเครื่องข้างเคียง
+                const distToOtherWingtip = dist - (other.WingSpan / 2);
+                
+                if (distToOtherWingtip < sweptRadius) {
+                    safe = false;
+                    error = "Swing-out collision path detected";
                 }
             }
-        }
-      });
+        });
 
-      ac.isSafe = safe; ac.errorMsg = error;
+        // บันทึกผลลัพธ์กลับไปยัง Object เครื่องบิน
+        ac.isSafe = safe;
+        ac.errorMsg = error;
     });
-  }
+}
 
   function animate() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
