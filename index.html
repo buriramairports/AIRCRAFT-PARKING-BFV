@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>Apron Simulation Pro v26.2 - Master Stable</title>
+  <title>Apron Simulation Pro v1 - BETA</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
@@ -37,7 +37,7 @@
   <header class="bg-slate-900 text-white h-14 px-6 flex justify-between items-center shadow-xl shrink-0 z-30">
     <div class="flex items-center gap-3">
       <div class="bg-sky-500 p-1.5 rounded text-white shadow-lg shadow-sky-500/30"><i data-lucide="shield-check"></i></div>
-      <h1 class="text-lg font-black tracking-tighter text-sky-400 uppercase">Apron Control <span class="text-white text-xs ml-1">v26.2 Stable</span></h1>
+      <h1 class="text-lg font-black tracking-tighter text-sky-400 uppercase">Apron Control <span class="text-white text-xs ml-1">v1.0 BETA</span></h1>
     </div>
     <div class="flex gap-4">
       <input type="date" id="datePicker" class="text-slate-900 px-3 py-1 rounded text-xs font-bold border-none outline-none shadow-inner">
@@ -252,14 +252,12 @@
  function checkSafety() {
     let mathLog = "";
     
-    // 1. วนลูปตรวจสอบเครื่องบินทุกลำ (Persistent Safety Check)
     placedAircraft.forEach((ac, idx) => {
         let staticSafe = true;
-        let leftSwingSafe = true;
-        let rightSwingSafe = true;
+        let leftSafe = true;  // ฝั่งซ้าย (ตามมุมมองผู้ใช้มองเข้าหลุม)
+        let rightSafe = true; // ฝั่งขวา (ตามมุมมองผู้ใช้มองเข้าหลุม)
         let error = "";
         
-        // --- ตรวจสอบขอบเขตหลุมจอด (Stand Boundary) ---
         let stand = findBestStand(ac);
         if (stand) {
             const noseY = ac.mY + (ac.Length / 2);
@@ -271,82 +269,77 @@
             if (ac.ICAO.charCodeAt(0) > stand.MaxCode.charCodeAt(0)) { staticSafe = false; error = "เครื่องใหญ่เกินขนาดหลุม"; }
             if (stand.Status === 'closed') { staticSafe = false; error = "หลุมจอดปิดใช้งาน"; }
             
-            // บันทึกข้อมูลพิกัดละเอียด (เฉพาะลำที่เลือก)
             if (idx === selectedIdx) {
                 mathLog += `<p class="text-sky-300 font-black border-b border-sky-900 pb-1 uppercase tracking-tighter">ข้อมูลพิกัดละเอียด</p>`;
-                mathLog += `<p>จมูกห่างหัวหลุม: ${distFromBottom.toFixed(2)} ม.</p>`;
-                mathLog += `<p>หางห่างท้ายหลุม: ${tailDistFromTop.toFixed(2)} ม.</p>`;
+                mathLog += `<p>ระยะจมูกจากหัวหลุม: ${distFromBottom.toFixed(2)} ม.</p>`;
+                mathLog += `<p>ระยะหางจากท้ายหลุม: ${tailDistFromTop.toFixed(2)} ม.</p>`;
             }
         } else { staticSafe = false; error = "อยู่นอกเขตหลุมจอด"; }
 
-        // 2. ค้นหาเพื่อนบ้าน (Neighbors) และตรวจสอบ Conflict
-        let leftNeighbor = null, rightNeighbor = null;
-        let minLeftDist = Infinity, minRightDist = Infinity;
-
+        // ตรวจสอบกับเครื่องลำอื่น
         placedAircraft.forEach((other, oIdx) => {
             if (idx === oIdx) return;
             
             const dist = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
             const minReq = safetySettings[ac.ICAO] || 4.5;
             const clear = dist - (ac.WingSpan / 2 + other.WingSpan / 2);
+            
+            // ตรวจสอบว่าเครื่อง "ลำอื่น" อยู่ฝั่งไหนของเรา (อิงพิกัด mX)
+            // mX ของเรา A1 อยู่ขวาสุด (0) ยิ่งไปทางซ้ายค่า mX ยิ่งติดลบ
+            // ดังนั้น ถ้า other.mX < ac.mX แสดงว่าลำอื่นอยู่ทาง "ซ้าย" ของเรา
+            const isOtherOnLeft = (other.mX < ac.mX);
 
-            // A. เช็คระยะจอดนิ่ง (Static)
+            // 1. เช็คจอดนิ่ง (Static)
             if (clear < minReq) { 
                 staticSafe = false; 
+                if (isOtherOnLeft) leftSafe = false; else rightSafe = false;
                 if (error === "") error = "ระยะปีกอันตราย"; 
             }
 
-            // B. เช็คพื้นที่ทับซ้อนทางตรรกะ (MARS Conflict)
+            // 2. เช็ค MARS Logic
             let otherStand = findBestStand(other);
-            if (stand && otherStand && staticSafe) {
+            if (stand && otherStand) {
                 if (stand.ParentID === otherStand.StandID || otherStand.ParentID === stand.StandID || (stand.ParentID && stand.ParentID === otherStand.ParentID)) {
-                    staticSafe = false; error = "พื้นที่ทับซ้อน (MARS)";
+                    staticSafe = false; leftSafe = false; rightSafe = false;
+                    error = "พื้นที่ทับซ้อน (MARS)";
                 }
             }
 
-            // C. เช็ควงเลี้ยวแยกฝั่ง (Directional Swing-out)
-            const turnR = ac.NoseToMainGear / Math.sin((ac.SteeringAngle || 45) * Math.PI / 180);
-            const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.Length - ac.NoseToMainGear);
-            const distToOtherBody = dist - (other.WingSpan / 2);
-            const isOtherOnRight = (other.mX > ac.mX);
+            // 3. เช็ควงเลี้ยว Swing-out (Dynamic)
+            if (ac.swing) {
+                const turnR = ac.NoseToMainGear / Math.sin((ac.SteeringAngle || 45) * Math.PI / 180);
+                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.Length - ac.NoseToMainGear);
+                const distToOtherBody = dist - (other.WingSpan / 2);
 
-            if (ac.swing && distToOtherBody < sweptR) {
-                if (isOtherOnRight) rightSwingSafe = false; else leftSwingSafe = false;
-            }
+                if (distToOtherBody < sweptR) {
+                    if (isOtherOnLeft) leftSafe = false; else rightSafe = false;
+                }
 
-            // เก็บข้อมูล Neighbor ที่ใกล้ที่สุดสำหรับ Math Log
-            if (idx === selectedIdx) {
-                const relX = other.mX - ac.mX; 
-                if (relX < 0 && Math.abs(relX) < minLeftDist) { minLeftDist = Math.abs(relX); leftNeighbor = other; }
-                else if (relX > 0 && Math.abs(relX) < minRightDist) { minRightDist = Math.abs(relX); rightNeighbor = other; }
+                // บันทึก Log เฉพาะลำที่เลือก
+                if (idx === selectedIdx) {
+                    let otherRefName = otherStand ? `Stand ${otherStand.StandID}` : other.Model;
+                    const isClash = distToOtherBody < sweptR;
+                    const boxColor = isClash ? "bg-red-900/50 border-red-500" : "bg-emerald-900/40 border-emerald-500";
+                    
+                    mathLog += `<div class="mt-3 p-3 rounded-xl border ${boxColor} animate-fadeIn shadow-lg">`;
+                    mathLog += `<p class="text-white font-black text-[11px] mb-1">เลี้ยว${isOtherOnLeft?'ซ้าย':'ขวา'} vs ${otherRefName}</p>`;
+                    mathLog += `<div class="grid grid-cols-2 gap-1 text-[10px]">`;
+                    mathLog += `<span class="text-slate-300">รัศมีกวาด:</span> <span class="text-white text-right">${sweptR.toFixed(2)} ม.</span>`;
+                    mathLog += `<span class="text-slate-300">ว่างจริง:</span> <span class="text-white text-right">${distToOtherBody.toFixed(2)} ม.</span>`;
+                    mathLog += `<span class="text-slate-300 font-bold">ผล:</span> <span class="font-bold text-right ${isClash ? 'text-red-400' : 'text-emerald-400'}">${isClash?'⚠️ ชน':'✅ พ้น'}</span>`;
+                    mathLog += `</div></div>`;
+                }
             }
         });
 
-        // 3. สร้าง Math Log เปรียบเทียบ 2 ฝั่ง (เฉพาะลำที่เลือก)
-        if (idx === selectedIdx && ac.swing) {
-            [{d:rightNeighbor, l:"ขวา"}, {d:leftNeighbor, l:"ซ้าย"}].forEach(n => {
-                if (n.d) {
-                    const d = Math.hypot(ac.mX - n.d.mX, ac.mY - n.d.mY);
-                    const tR = ac.NoseToMainGear / Math.sin((ac.SteeringAngle || 45) * Math.PI / 180);
-                    const sR = Math.hypot(tR + ac.WingSpan/2, ac.Length - ac.NoseToMainGear);
-                    const gap = d - (n.d.WingSpan/2);
-                    const isClash = gap < sR;
-                    const oS = findBestStand(n.d);
-                    const boxCol = isClash ? "bg-red-900/50 border-red-500" : "bg-emerald-900/40 border-emerald-500";
-                    mathLog += `<div class="mt-2 p-2 rounded-xl border ${boxCol} animate-fadeIn"><p class="text-white font-black text-[10px]">เลี้ยว${n.l} vs Stand ${oS?oS.StandID:'?'}</p><div class="grid grid-cols-2 text-[9px] text-slate-300"><span>กวาดปีก: ${sR.toFixed(1)}ม.</span><span class="text-right">ว่างจริง: ${gap.toFixed(1)}ม.</span><span class="font-bold">ผล:</span><span class="text-right font-bold ${isClash?'text-red-400':'text-emerald-400'}">${isClash?'⚠️ ชน':'✅ พ้น'}</span></div></div>`;
-                }
-            });
-        }
-
-        // สรุปสถานะลง Object
-        ac.isSafe = staticSafe && (!ac.swing || (leftSwingSafe && rightSwingSafe));
-        ac.leftSafe = leftSwingSafe;
-        ac.rightSafe = rightSwingSafe;
+        ac.isSafe = staticSafe && leftSafe && rightSafe;
+        ac.leftSafe = leftSafe;
+        ac.rightSafe = rightSafe;
         ac.staticSafe = staticSafe;
-        ac.errorMsg = error || (!leftSwingSafe || !rightSwingSafe ? "วงเลี้ยวชนเครื่องอื่น" : "");
+        ac.errorMsg = error || (!leftSafe || !rightSafe ? "วงเลี้ยวไม่ปลอดภัย" : "");
     });
 
-    document.getElementById('mathOutput').innerHTML = mathLog || '<p class="text-slate-500 italic text-[10px]">เลือกเครื่องบินบนแผนผัง...</p>';
+    document.getElementById('mathOutput').innerHTML = mathLog || '<p class="text-slate-500 italic text-[10px]">เลือกเครื่องบินเพื่อตรวจสอบพารามิเตอร์...</p>';
     if (selectedIdx !== -1) updateInspector();
   }
 
@@ -397,55 +390,72 @@ function drawAircraft(ac, isSelected) {
     const p = mToP(ac.mX, ac.mY), w = ac.WingSpan * scale, l = ac.Length * scale, mb = ac.NoseToMainGear * scale;
     const fs = Math.max(8, 11 * (zoomPercent/100));
     
+    // --- 1. วาด Aura แบ่งครึ่ง (วาดก่อนหมุนเครื่องเพื่อให้สีตรงกับฝั่งจอ) ---
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    const auraRadius = (ac.WingSpan/2 + (safetySettings[ac.ICAO] || 4.5)) * scale;
+
+    // ครึ่งซ้ายของจอ (Left Side)
+    ctx.beginPath();
+    ctx.arc(0, 0, auraRadius, Math.PI/2, 1.5 * Math.PI);
+    ctx.fillStyle = ac.leftSafe ? 'rgba(34, 197, 94, 0.08)' : 'rgba(239, 68, 68, 0.2)';
+    ctx.fill();
+
+    // ครึ่งขวาของจอ (Right Side)
+    ctx.beginPath();
+    ctx.arc(0, 0, auraRadius, 1.5 * Math.PI, 0.5 * Math.PI);
+    ctx.fillStyle = ac.rightSafe ? 'rgba(34, 197, 94, 0.08)' : 'rgba(239, 68, 68, 0.2)';
+    ctx.fill();
+    ctx.restore();
+
+    // --- 2. วาดตัวเครื่องบินและวงเลี้ยว (หมุนเครื่อง) ---
     ctx.save(); 
     ctx.translate(p.x, p.y); 
     ctx.rotate(ac.heading * Math.PI / 180);
 
-    // 1. วงกลมรัศมีปลอดภัย (Static Aura)
-    ctx.beginPath(); 
-    ctx.arc(0, 0, (ac.WingSpan/2 + (safetySettings[ac.ICAO] || 4.5)) * scale, 0, Math.PI*2);
-    ctx.fillStyle = ac.staticSafe ? 'rgba(34, 197, 94, 0.08)' : 'rgba(239, 68, 68, 0.15)'; 
-    ctx.fill();
-
-    // 2. วาดเส้นประวงเลี้ยว Swing-out แยกสีซ้าย-ขวา
     if (ac.swing) {
         ctx.setLineDash([4, 4]); ctx.lineWidth = 2;
-        const tR = ac.NoseToMainGear / Math.sin((ac.SteeringAngle || 45) * Math.PI / 180);
-        const sR = Math.hypot(tR + ac.WingSpan/2, ac.Length - ac.NoseToMainGear) * scale;
-        const pivotX = tR * scale;
+        const turnR_m = ac.NoseToMainGear / Math.sin((ac.SteeringAngle || 45) * Math.PI / 180);
+        const sweptR_px = Math.hypot(turnR_m + ac.WingSpan/2, ac.Length - ac.NoseToMainGear) * scale;
+        const pivot_px = turnR_m * scale;
 
-        // วาดฝั่งขวา
-        ctx.strokeStyle = ac.rightSafe ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.8)';
-        ctx.beginPath(); ctx.arc(pivotX, mb, sR, Math.PI, 1.5 * Math.PI); ctx.stroke();
+        // เส้นประเลี้ยวขวา (Right Swing)
+        ctx.strokeStyle = ac.rightSafe ? 'rgba(34, 197, 94, 0.6)' : 'rgba(239, 68, 68, 0.8)';
+        ctx.beginPath(); ctx.arc(pivot_px, mb, sweptR_px, Math.PI, 1.5 * Math.PI); ctx.stroke();
         
-        // วาดฝั่งซ้าย
-        ctx.strokeStyle = ac.leftSafe ? 'rgba(34, 197, 94, 0.7)' : 'rgba(239, 68, 68, 0.8)';
-        ctx.beginPath(); ctx.arc(-pivotX, mb, sR, 1.5 * Math.PI, 2 * Math.PI); ctx.stroke();
+        // เส้นประเลี้ยวซ้าย (Left Swing)
+        ctx.strokeStyle = ac.leftSafe ? 'rgba(34, 197, 94, 0.6)' : 'rgba(239, 68, 68, 0.8)';
+        ctx.beginPath(); ctx.arc(-pivot_px, mb, sweptR_px, 1.5 * Math.PI, 2 * Math.PI); ctx.stroke();
         ctx.setLineDash([]);
     }
     
-    // 3. วาดตัวเครื่องบิน
     ctx.fillStyle = isSelected ? '#0ea5e9' : (ac.isSafe ? ac.Color : '#ef4444');
     ctx.fillRect(-w/20, -mb, w/10, l);
     ctx.fillRect(-w/2, -mb + l*0.15, w, l/10);
     ctx.fillRect(-w/4, -mb + l*0.85, w/2, l/20);
-    
-    // 4. สัญลักษณ์บอกสถานะที่ปลายปีก (Wingtip Status)
-    if (ac.swing) {
-        ctx.font = `bold ${fs}px Inter`; ctx.textAlign = "center";
-        ctx.fillStyle = ac.leftSafe ? "#22c55e" : "#ef4444";
-        ctx.fillText(ac.leftSafe ? "L:OK" : "L:⚠️", -w/2 - 15, -mb + l*0.2);
-        ctx.fillStyle = ac.rightSafe ? "#22c55e" : "#ef4444";
-        ctx.fillText(ac.rightSafe ? "R:OK" : "R:⚠️", w/2 + 15, -mb + l*0.2);
-    }
     ctx.restore();
 
-    // 5. ป้ายชื่อและคำเตือน (เสมอทิศตั้ง)
-    ctx.save(); ctx.translate(p.x, p.y);
+    // --- 3. วาดป้ายชื่อและสัญลักษณ์ปลายปีก (ตั้งตรงเสมอ) ---
+    ctx.save(); 
+    ctx.translate(p.x, p.y);
+    
+    // ป้ายชื่อรุ่น
     ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-    const mTw = ctx.measureText(ac.Model).width;
+    const modelLabel = ac.Model; ctx.font = `bold ${fs}px Inter`;
+    const mTw = ctx.measureText(modelLabel).width;
     ctx.fillRect(-mTw/2-6, -fs/2-5, mTw+12, fs+10);
-    ctx.fillStyle = "white"; ctx.textAlign="center"; ctx.font=`bold ${fs}px Inter`; ctx.fillText(ac.Model, 0, fs/3);
+    ctx.fillStyle = "white"; ctx.textAlign="center"; ctx.fillText(modelLabel, 0, fs/3);
+
+    if (ac.swing) {
+        ctx.font = `bold ${fs-1}px Inter`;
+        // ปลายปีกซ้าย (จอ)
+        ctx.fillStyle = ac.leftSafe ? "#22c55e" : "#ef4444";
+        ctx.fillText(ac.leftSafe ? "L:OK" : "L:⚠️", -w/2 - 15, 0);
+        // ปลายปีกขวา (จอ)
+        ctx.fillStyle = ac.rightSafe ? "#22c55e" : "#ef4444";
+        ctx.fillText(ac.rightSafe ? "R:OK" : "R:⚠️", w/2 + 15, 0);
+    }
+
     if (!ac.isSafe) {
         ctx.fillStyle = '#ef4444'; ctx.font = `bold ${fs+2}px Sarabun`;
         ctx.fillText("⚠️ " + ac.errorMsg, 0, -fs * 6);
