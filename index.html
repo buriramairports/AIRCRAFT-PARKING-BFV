@@ -240,22 +240,72 @@
     if(selectedIdx === -1) { setTimeout(() => { document.getElementById('canvasContainer').scrollLeft = canvas.width; }, 100); }
   }
 
-  function animate() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height); checkSafety();
+ function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height); 
+    checkSafety();
+
     stands.forEach(s => {
       const p = mToP(s.mX, s.mY), w = s.Width * scale, l = s.Length * scale;
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate((s.Heading || 0) * Math.PI / 180);
-      ctx.strokeStyle = s.Status === 'active' ? '#94a3b8' : '#ef4444'; ctx.setLineDash([4,4]); ctx.strokeRect(-w/2, -l/2, w, l);
-      if(s.Status === 'closed') { ctx.fillStyle = 'rgba(239, 68, 68, 0.1)'; ctx.fillRect(-w/2, -l/2, w, l); }
-      ctx.beginPath(); ctx.setLineDash([]); ctx.strokeStyle = '#cbd5e1'; ctx.moveTo(0, -l/2); ctx.lineTo(0, l/2); ctx.stroke();
-      const fontSize = Math.max(9, 14 * (zoomPercent/100)); ctx.fillStyle = "#0f172a"; 
-      const label = `${s.StandID} (Code ${s.MaxCode})`; ctx.font = `bold ${fontSize}px Inter`;
-      const tw = ctx.measureText(label).width; ctx.fillRect(-tw/2 - 10, -l/2 - (fontSize * 2.2), tw + 20, fontSize * 1.8);
-      ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.fillText(label, 0, -l/2 - (fontSize * 0.8));
+      ctx.save(); 
+      ctx.translate(p.x, p.y); 
+      ctx.rotate((s.Heading || 0) * Math.PI / 180);
+      
+      // 1. วาดเส้นขอบและเส้นกึ่งกลาง
+      ctx.strokeStyle = s.Status === 'active' ? '#94a3b8' : '#ef4444'; 
+      ctx.setLineDash(s.ParentID ? [2, 2] : [4, 4]); 
+      ctx.strokeRect(-w/2, -l/2, w, l);
+      
+      if(s.Status === 'closed') { 
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.1)'; 
+          ctx.fillRect(-w/2, -l/2, w, l); 
+      }
+      
+      ctx.beginPath(); 
+      ctx.setLineDash([]); 
+      ctx.strokeStyle = '#cbd5e1'; 
+      ctx.moveTo(0, -l/2); 
+      ctx.lineTo(0, l/2); 
+      ctx.stroke();
+
+      // 2. คำนวณตำแหน่งป้ายชื่อ (Multi-Level Badge)
+      const fontSize = Math.max(9, 14 * (zoomPercent/100));
+      ctx.font = `bold ${fontSize}px Inter`;
+      const label = `${s.StandID} (Code ${s.MaxCode})`;
+      const tw = ctx.measureText(label).width;
+      
+      let labelY;
+      if (!s.ParentID) {
+          // หลุมหลัก (Parent) -> อยู่แถวบนสุด
+          labelY = -l/2 - (fontSize * 2.8);
+          ctx.fillStyle = "#0f172a"; // สีน้ำเงินเข้มจัด
+      } else {
+          // หลุมย่อย (Child) -> อยู่แถวล่างลงมา
+          labelY = -l/2 - (fontSize * 1.2);
+          ctx.fillStyle = "#334155"; // สีเทาเข้มเพื่อให้หลุมหลักเด่นกว่า
+      }
+
+      // วาดพื้นหลังป้ายชื่อ
+      ctx.fillRect(-tw/2 - 10, labelY - fontSize, tw + 20, fontSize * 1.7);
+      
+      // วาดข้อความชื่อหลุม
+      ctx.fillStyle = "white";
+      ctx.textAlign = "center";
+      ctx.fillText(label, 0, labelY + (fontSize * 0.1));
+      
+      // วาดขนาดหลุมจอดกำกับไว้ด้านล่าง
+      if (!s.ParentID) { // แสดงเฉพาะหลุมหลักเพื่อไม่ให้รก
+          ctx.fillStyle = "#64748b";
+          ctx.font = `bold ${fontSize*0.7}px Inter`;
+          ctx.fillText(`${s.Width} x ${s.Length} ม.`, 0, l/2 + fontSize + 5);
+      }
+      
       ctx.restore();
     });
+
+    // วาดเครื่องบิน
     placedAircraft.forEach((ac, i) => drawAircraft(ac, i === selectedIdx));
     if (ghostAircraft) { ctx.globalAlpha = 0.5; drawAircraft(ghostAircraft, true); ctx.globalAlpha = 1.0; }
+    
     requestAnimationFrame(animate);
   }
 
