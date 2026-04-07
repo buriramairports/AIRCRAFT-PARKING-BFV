@@ -164,13 +164,22 @@
   }
 
   // --- Render Functions with Edit Buttons ---
-  function renderStandsTable() {
+   function renderStandsTable() {
     document.getElementById('standsTable').innerHTML = stands.map((s, i) => `
-      <div class="flex justify-between items-center p-3 bg-white border rounded-xl text-xs font-bold shadow-sm group">
-        <div class="${s.Status === 'closed' ? 'text-red-500' : 'text-slate-700'}">Stand ${s.StandID} (Code ${s.MaxCode})</div>
-        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-           <button onclick="editStand(${i})" class="p-1.5 bg-sky-50 text-sky-600 rounded-lg hover:bg-sky-500 hover:text-white transition"><i data-lucide="edit-3" class="w-3 h-3"></i></button>
-           <button onclick="uiDeleteStand('${s.StandID}')" class="p-1.5 bg-red-50 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+      <div class="flex justify-between items-center p-3 bg-white border rounded-xl text-xs font-bold shadow-sm hover:border-sky-300 transition group">
+        <div class="${s.Status === 'closed' ? 'text-red-500' : 'text-slate-700'} flex flex-col">
+           <span class="text-sm font-black">${s.StandID}</span>
+           <span class="text-[9px] font-bold text-slate-400 uppercase">Code ${s.MaxCode} | ${s.Status}</span>
+        </div>
+        <div class="flex gap-1">
+           <!-- ปุ่มแก้ไขแบบข้อความ -->
+           <button onclick="editStand(${i})" class="px-3 py-1.5 bg-sky-100 text-sky-700 rounded-lg hover:bg-sky-600 hover:text-white transition-all text-[10px] font-black uppercase tracking-tighter">
+              แก้ไข
+           </button>
+           <!-- ปุ่มลบแบบข้อความ -->
+           <button onclick="uiDeleteStand('${s.StandID}')" class="px-3 py-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-600 hover:text-white transition-all text-[10px] font-black uppercase tracking-tighter">
+              ลบ
+           </button>
         </div>
       </div>`).join('');
     lucide.createIcons();
@@ -178,11 +187,20 @@
 
   function renderAircraftTypeTable() {
     document.getElementById('aircraftTable').innerHTML = aircraftTypes.map((ac, i) => `
-      <div class="flex justify-between items-center p-3 bg-white border rounded-xl text-xs font-bold shadow-sm group">
-        <span class="text-slate-700">${ac.Model}</span>
-        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-           <button onclick="editAircraft(${i})" class="p-1.5 bg-sky-50 text-sky-600 rounded-lg hover:bg-sky-500 hover:text-white transition"><i data-lucide="edit-3" class="w-3 h-3"></i></button>
-           <button onclick="uiDeleteAircraft('${ac.Model}')" class="p-1.5 bg-red-50 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+      <div class="flex justify-between items-center p-3 bg-white border rounded-xl text-xs font-bold shadow-sm hover:border-sky-300 transition group">
+        <div class="flex flex-col">
+           <span class="text-sm font-black text-slate-700">${ac.Model}</span>
+           <span class="text-[9px] font-bold text-slate-400 uppercase">Span: ${ac.WingSpan}m | Code ${ac.ICAO}</span>
+        </div>
+        <div class="flex gap-1">
+           <!-- ปุ่มแก้ไขแบบข้อความ -->
+           <button onclick="editAircraft(${i})" class="px-3 py-1.5 bg-sky-100 text-sky-700 rounded-lg hover:bg-sky-600 hover:text-white transition-all text-[10px] font-black uppercase tracking-tighter">
+              แก้ไข
+           </button>
+           <!-- ปุ่มลบแบบข้อความ -->
+           <button onclick="uiDeleteAircraft('${ac.Model}')" class="px-3 py-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-600 hover:text-white transition-all text-[10px] font-black uppercase tracking-tighter">
+              ลบ
+           </button>
         </div>
       </div>`).join('');
     lucide.createIcons();
