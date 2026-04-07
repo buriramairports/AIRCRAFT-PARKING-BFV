@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>Apron OPS Pro v7</title>
+  <title>Apron Simulation Pro v8</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
   <style>
@@ -10,23 +10,23 @@
     #canvasContainer { flex: 1; position: relative; background-color: #cbd5e1; overflow: hidden; }
     canvas { background-color: #f1f5f9; cursor: crosshair; touch-action: none; }
     .tab-btn.active { border-bottom: 3px solid #0ea5e9; color: #0ea5e9; background-color: #f8fafc; }
+    input, select { font-size: 13px !important; }
   </style>
 </head>
 <body class="bg-slate-50">
 
-  <header class="bg-slate-900 text-white h-16 px-6 flex justify-between items-center shadow-xl shrink-0 z-30">
+  <header class="bg-slate-900 text-white h-14 px-6 flex justify-between items-center shadow-xl shrink-0 z-30">
     <div class="flex items-center gap-3">
-      <div class="bg-sky-500 p-2 rounded-lg text-white"><i data-lucide="layout-grid"></i></div>
-      <h1 class="text-xl font-black tracking-tighter text-sky-400 uppercase">Apron Pro <span class="text-white">v1</span></h1>
+      <div class="bg-sky-500 p-1.5 rounded text-white"><i data-lucide="shield-check" class="w-5 h-5"></i></div>
+      <h1 class="text-lg font-black tracking-tighter text-sky-400 uppercase">Apron Pro <span class="text-white text-xs ml-1">v8.0</span></h1>
     </div>
     <div class="flex gap-4">
-      <input type="date" id="datePicker" class="text-slate-900 px-3 py-1 rounded text-sm font-bold border-none">
-      <button onclick="loadData()" class="bg-slate-700 p-2 rounded hover:bg-slate-600 transition"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+      <input type="date" id="datePicker" class="text-slate-900 px-3 py-1 rounded text-xs font-bold border-none">
+      <button onclick="loadData()" class="bg-slate-700 p-1.5 rounded hover:bg-slate-600 transition"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
     </div>
   </header>
 
   <div class="flex flex-1 overflow-hidden">
-    <!-- Sidebar -->
     <aside class="w-96 bg-white border-r flex flex-col shadow-2xl z-20 shrink-0">
       <div class="flex border-b text-[10px] font-black uppercase tracking-widest text-slate-400">
         <button onclick="switchTab('planner')" id="tab-planner" class="tab-btn flex-1 p-4 active">Planner</button>
@@ -34,14 +34,14 @@
         <button onclick="switchTab('aircraft')" id="tab-aircraft" class="tab-btn flex-1 p-4">Types</button>
       </div>
 
-      <div class="p-6 flex-1 overflow-y-auto">
+      <div class="p-5 flex-1 overflow-y-auto bg-slate-50/30">
         <!-- Planner Tab -->
         <div id="view-planner" class="space-y-6">
           <div id="acList" class="grid grid-cols-1 gap-2"></div>
-          <div id="inspector" class="hidden p-5 bg-slate-50 rounded-3xl border-2 border-slate-100 space-y-4">
-             <div id="insDetail" class="text-sm font-bold text-slate-700 leading-relaxed"></div>
-             <label class="flex items-center justify-between p-3 bg-white rounded-xl border cursor-pointer">
-                <span class="text-xs font-black text-slate-400 uppercase">Swing-out Sim</span>
+          <div id="inspector" class="hidden p-5 bg-white rounded-3xl border-2 border-sky-100 shadow-sm space-y-4">
+             <div id="insDetail" class="text-sm font-bold text-slate-700"></div>
+             <label class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border cursor-pointer">
+                <span class="text-[10px] font-black text-slate-400 uppercase">Swing-out Simulation</span>
                 <input type="checkbox" id="swingToggle" onchange="toggleSwingOut()" class="w-5 h-5 accent-sky-500">
              </label>
              <div class="flex gap-2">
@@ -54,20 +54,25 @@
 
         <!-- Manage Stands Tab -->
         <div id="view-stands" class="hidden space-y-4">
-          <div class="bg-sky-50 p-4 rounded-2xl border border-sky-100 space-y-3 shadow-sm">
-            <h4 class="font-black text-xs text-sky-800 uppercase tracking-widest mb-2">เพิ่ม/แก้ไขหลุมจอด</h4>
-            <input id="st-id" placeholder="Stand ID (A1)" class="w-full p-3 rounded-xl border text-sm focus:ring-2 outline-none">
+          <div class="bg-white p-5 rounded-2xl border-2 border-sky-100 space-y-3 shadow-sm">
+            <h4 class="font-black text-[10px] text-sky-600 uppercase tracking-[0.2em] mb-2" id="standFormTitle">Add New Stand</h4>
+            <input id="st-id" placeholder="Stand ID (e.g. A1)" class="w-full p-2.5 rounded-lg border focus:ring-2 outline-none">
             <div class="grid grid-cols-2 gap-2">
-               <input id="st-w" type="number" placeholder="Width (m)" class="p-3 rounded-xl border text-sm">
-               <input id="st-l" type="number" placeholder="Length (m)" class="p-3 rounded-xl border text-sm">
+               <input id="st-w" type="number" placeholder="Width (m)" class="p-2.5 rounded-lg border">
+               <input id="st-l" type="number" placeholder="Length (m)" class="p-2.5 rounded-lg border">
             </div>
-            <select id="st-code" class="w-full p-3 rounded-xl border text-sm">
-               <option value="C">Code C (Small)</option>
-               <option value="D">Code D (Medium)</option>
-               <option value="E">Code E (Large)</option>
-               <option value="F">Code F (Super)</option>
+            <div class="grid grid-cols-2 gap-2">
+               <input id="st-heading" type="number" placeholder="Heading (deg)" class="p-2.5 rounded-lg border">
+               <select id="st-code" class="p-2.5 rounded-lg border">
+                  <option value="C">Code C</option><option value="D">Code D</option>
+                  <option value="E">Code E</option><option value="F">Code F</option>
+               </select>
+            </div>
+            <select id="st-status" class="w-full p-2.5 rounded-lg border font-bold">
+               <option value="active">🟢 Active (Available)</option>
+               <option value="closed">🔴 Closed (Maintenance)</option>
             </select>
-            <button onclick="uiSaveStand()" class="w-full bg-sky-600 text-white p-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-sky-200">Save Stand</button>
+            <button onclick="uiSaveStand()" class="w-full bg-sky-600 text-white p-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-sky-200">Save Stand</button>
           </div>
           <div id="standsTable" class="space-y-2"></div>
         </div>
@@ -75,40 +80,43 @@
         <!-- Manage Aircraft Types Tab -->
         <div id="view-aircraft" class="hidden space-y-4">
            <div class="bg-slate-800 p-5 rounded-2xl text-white space-y-3 shadow-xl">
-             <h4 class="font-black text-xs text-slate-400 uppercase tracking-widest mb-2">Manage Aircraft Models</h4>
-             <input id="ac-m" placeholder="Model (A320)" class="w-full p-3 rounded-xl border-none text-slate-900 text-sm">
+             <h4 class="font-black text-[10px] text-slate-400 uppercase mb-2" id="acFormTitle">Aircraft Configuration</h4>
+             <input id="ac-m" placeholder="Model (e.g. A320)" class="w-full p-2.5 rounded-lg border-none text-slate-900">
              <div class="grid grid-cols-2 gap-2">
-                <input id="ac-s" type="number" placeholder="Wing Span" class="p-3 rounded-xl border-none text-slate-900 text-sm">
-                <input id="ac-l" type="number" placeholder="Length" class="p-3 rounded-xl border-none text-slate-900 text-sm">
+                <input id="ac-s" type="number" placeholder="Wing Span" class="p-2.5 rounded-lg text-slate-900 border-none">
+                <input id="ac-l" type="number" placeholder="Length" class="p-2.5 rounded-lg text-slate-900 border-none">
              </div>
              <div class="grid grid-cols-2 gap-2">
-                <input id="ac-nmg" type="number" placeholder="Nose to MainGear" class="p-3 rounded-xl border-none text-slate-900 text-sm">
-                <select id="ac-code" class="p-3 rounded-xl border-none text-slate-900 text-sm">
-                   <option value="C">Code C</option>
-                   <option value="E">Code E</option>
+                <input id="ac-nmg" type="number" placeholder="Nose to MainGear" class="p-2.5 rounded-lg text-slate-900 border-none">
+                <input id="ac-sa" type="number" placeholder="Steering Angle" class="p-2.5 rounded-lg text-slate-900 border-none">
+             </div>
+             <div class="grid grid-cols-2 gap-2">
+                <input id="ac-jb" type="number" placeholder="Jet Blast (m)" class="p-2.5 rounded-lg text-slate-900 border-none">
+                <select id="ac-code" class="p-2.5 rounded-lg text-slate-900 border-none font-bold">
+                   <option value="C">Code C</option><option value="E">Code E</option><option value="F">Code F</option>
                 </select>
              </div>
-             <input id="ac-col" type="color" value="#0ea5e9" class="w-full h-10 rounded-xl border-none p-1">
-             <button onclick="uiSaveAircraft()" class="w-full bg-sky-500 text-white p-3 rounded-xl font-black text-xs uppercase tracking-widest">Add Model</button>
+             <input id="ac-col" type="color" value="#0ea5e9" class="w-full h-8 rounded-lg border-none p-0.5">
+             <button onclick="uiSaveAircraft()" class="w-full bg-sky-500 text-white p-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-sky-900">Save Aircraft Model</button>
            </div>
            <div id="aircraftTable" class="space-y-2"></div>
         </div>
       </div>
     </aside>
 
-    <!-- Canvas Area -->
-    <div id="canvasContainer">
+    <main id="canvasContainer">
       <canvas id="mainCanvas"></canvas>
       <!-- Legends -->
-      <div class="absolute bottom-6 left-6 flex flex-col gap-2 bg-white/90 p-4 rounded-2xl shadow-2xl border border-slate-200 text-[10px] font-black uppercase tracking-wider">
-         <div class="flex items-center gap-3"><span class="w-4 h-4 bg-green-500 rounded-full"></span> Safe</div>
-         <div class="flex items-center gap-3"><span class="w-4 h-4 bg-red-500 rounded-full"></span> Danger</div>
-         <div class="flex items-center gap-3"><span class="w-4 h-1 border-t-2 border-dashed border-red-400"></span> Bilateral Swing-out</div>
+      <div class="absolute bottom-6 left-6 flex flex-col gap-2 bg-white/90 p-4 rounded-2xl shadow-2xl border border-slate-200 text-[9px] font-black uppercase tracking-wider">
+         <div class="flex items-center gap-3"><span class="w-3 h-3 bg-green-500 rounded-full"></span> Safe</div>
+         <div class="flex items-center gap-3"><span class="w-3 h-3 bg-red-500 rounded-full"></span> Danger / Stand Closed</div>
+         <div class="flex items-center gap-3"><span class="w-3 h-0.5 border-t-2 border-dashed border-red-400"></span> Swing-out swept path</div>
       </div>
-    </div>
+    </main>
   </div>
 
 <script>
+  // CONFIG: URL ของท่าน
   const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxqCIfejWJerGZfjRfZs-Bn0Bq37jIxzAUdX_-fpK5i3hDiEK-6rBNNSE4KFDuITRT7/exec'; 
 
   let aircraftTypes = [], stands = [], safetyRules = {};
@@ -155,50 +163,69 @@
     });
   }
 
-  // --- UI Renderers ---
-  function renderAircraftList() {
-    const list = document.getElementById('acList');
-    list.innerHTML = aircraftTypes.map((type, i) => `
-      <button onclick="pickGhost(${i})" class="w-full p-4 bg-white border-2 border-slate-100 rounded-2xl text-left hover:border-sky-400 transition flex justify-between items-center group shadow-sm">
-        <div><b class="text-slate-800 text-sm">${type.Model}</b><br><span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Code ${type.ICAO} | ${type.WingSpan}m</span></div>
-        <i data-lucide="plus" class="w-4 h-4 text-slate-300 group-hover:text-sky-500"></i>
-      </button>`).join('');
-    lucide.createIcons();
-  }
-
+  // --- Render Functions with Edit Buttons ---
   function renderStandsTable() {
-    document.getElementById('standsTable').innerHTML = stands.map(s => `
-      <div class="flex justify-between items-center p-3 bg-white border rounded-xl text-xs font-bold shadow-sm">
-        <span>Stand ${s.StandID} (Code ${s.MaxCode})</span>
-        <button onclick="uiDeleteStand('${s.StandID}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+    document.getElementById('standsTable').innerHTML = stands.map((s, i) => `
+      <div class="flex justify-between items-center p-3 bg-white border rounded-xl text-xs font-bold shadow-sm group">
+        <div class="${s.Status === 'closed' ? 'text-red-500' : 'text-slate-700'}">Stand ${s.StandID} (Code ${s.MaxCode})</div>
+        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+           <button onclick="editStand(${i})" class="p-1.5 bg-sky-50 text-sky-600 rounded-lg hover:bg-sky-500 hover:text-white transition"><i data-lucide="edit-3" class="w-3 h-3"></i></button>
+           <button onclick="uiDeleteStand('${s.StandID}')" class="p-1.5 bg-red-50 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+        </div>
       </div>`).join('');
     lucide.createIcons();
   }
 
   function renderAircraftTypeTable() {
-    document.getElementById('aircraftTable').innerHTML = aircraftTypes.map(ac => `
-      <div class="flex justify-between items-center p-3 bg-white border rounded-xl text-xs font-bold shadow-sm">
-        <span>${ac.Model} (${ac.WingSpan}m)</span>
-        <button onclick="uiDeleteAircraft('${ac.Model}')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+    document.getElementById('aircraftTable').innerHTML = aircraftTypes.map((ac, i) => `
+      <div class="flex justify-between items-center p-3 bg-white border rounded-xl text-xs font-bold shadow-sm group">
+        <span class="text-slate-700">${ac.Model}</span>
+        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+           <button onclick="editAircraft(${i})" class="p-1.5 bg-sky-50 text-sky-600 rounded-lg hover:bg-sky-500 hover:text-white transition"><i data-lucide="edit-3" class="w-3 h-3"></i></button>
+           <button onclick="uiDeleteAircraft('${ac.Model}')" class="p-1.5 bg-red-50 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+        </div>
       </div>`).join('');
     lucide.createIcons();
   }
 
-  // --- UI Actions ---
-  function pickGhost(i) { ghostAircraft = { ...aircraftTypes[i], heading: 180, mX: 0, mY: 0, swing: false }; }
-  
+  // --- CRUD Logic (EDIT) ---
+  function editStand(i) {
+    const s = stands[i];
+    document.getElementById('standFormTitle').innerText = "Edit Stand " + s.StandID;
+    document.getElementById('st-id').value = s.StandID;
+    document.getElementById('st-w').value = s.Width;
+    document.getElementById('st-l').value = s.Length;
+    document.getElementById('st-heading').value = s.Heading;
+    document.getElementById('st-code').value = s.MaxCode;
+    document.getElementById('st-status').value = s.Status;
+  }
+
+  function editAircraft(i) {
+    const ac = aircraftTypes[i];
+    document.getElementById('acFormTitle').innerText = "Edit Aircraft Model: " + ac.Model;
+    document.getElementById('ac-m').value = ac.Model;
+    document.getElementById('ac-s').value = ac.WingSpan;
+    document.getElementById('ac-l').value = ac.Length;
+    document.getElementById('ac-nmg').value = ac.NoseToMainGear;
+    document.getElementById('ac-sa').value = ac.SteeringAngle;
+    document.getElementById('ac-jb').value = ac.JetBlast;
+    document.getElementById('ac-code').value = ac.ICAO;
+    document.getElementById('ac-col').value = ac.Color;
+  }
+
+  // --- Save Logic ---
   async function uiSaveStand() {
     const data = { 
         StandID: document.getElementById('st-id').value, 
         Width: Number(document.getElementById('st-w').value), 
         Length: Number(document.getElementById('st-l').value), 
+        Heading: Number(document.getElementById('st-heading').value),
         MaxCode: document.getElementById('st-code').value, 
-        Status: 'active' 
+        Status: document.getElementById('st-status').value 
     };
     await apiCall('saveStand', data); await loadData();
+    document.getElementById('standFormTitle').innerText = "Add New Stand";
   }
-
-  async function uiDeleteStand(id) { if(confirm('Delete Stand '+id+'?')) { await apiCall('deleteStand', {id}); await loadData(); } }
 
   async function uiSaveAircraft() {
     const data = {
@@ -206,24 +233,23 @@
         WingSpan: Number(document.getElementById('ac-s').value),
         Length: Number(document.getElementById('ac-l').value),
         NoseToMainGear: Number(document.getElementById('ac-nmg').value),
+        SteeringAngle: Number(document.getElementById('ac-sa').value),
+        JetBlast: Number(document.getElementById('ac-jb').value),
         ICAO: document.getElementById('ac-code').value,
-        JetBlast: 30, SteeringAngle: 45, Color: document.getElementById('ac-col').value
+        Color: document.getElementById('ac-col').value
     };
     await apiCall('saveAircraftType', data); await loadData();
+    document.getElementById('acFormTitle').innerText = "Aircraft Configuration";
   }
 
-  async function uiDeleteAircraft(id) { if(confirm('Delete '+id+'?')) { await apiCall('deleteAircraftType', {id}); await loadData(); } }
-
-  // --- Coordinate Converter ---
-  const mToP = (mX, mY) => ({ x: originX + (mX * scale), y: originY + (mY * scale) });
-  const pToM = (pX, pY) => ({ mX: (pX - originX) / scale, mY: (pY - originY) / scale });
-
-  // --- Simulation Logic ---
+  // --- Safety Core ---
   function checkSafety() {
     placedAircraft.forEach((ac, idx) => {
         let safe = true, error = "";
         let inStand = stands.find(s => ac.mX >= (s.mX - s.Width/2) && ac.mX <= (s.mX + s.Width/2) && ac.mY >= (s.mY - s.Length/2) && ac.mY <= (s.mY + s.Length/2));
+        
         if (inStand) {
+            if (inStand.Status === 'closed') { safe = false; error = "Stand Closed"; }
             if (ac.ICAO.charCodeAt(0) > inStand.MaxCode.charCodeAt(0)) { safe = false; error = "Aircraft too large"; }
         } else { safe = false; error = "Outside Stand Boundary"; }
 
@@ -240,32 +266,32 @@
     });
   }
 
-  // --- Interaction & Animation ---
-  canvas.onmousemove = (e) => {
-    const r = canvas.getBoundingClientRect(); const pos = pToM(e.clientX - r.left, e.clientY - r.top);
-    if (ghostAircraft) { ghostAircraft.mX = pos.mX; ghostAircraft.mY = pos.mY; 
-        stands.forEach(s => { if(Math.abs(pos.mX - s.mX) < 10 && Math.abs(pos.mY - s.mY) < 15) { ghostAircraft.mX = s.mX; ghostAircraft.mY = s.mY; ghostAircraft.heading = 180; }});
-    } else if (isDragging && selectedIdx !== -1) { placedAircraft[selectedIdx].mX = pos.mX; placedAircraft[selectedIdx].mY = pos.mY; updateInspector(); }
-  };
-
-  canvas.onmousedown = (e) => {
-    const r = canvas.getBoundingClientRect(); const pos = pToM(e.clientX - r.left, e.clientY - r.top);
-    if (ghostAircraft) { placedAircraft.push({ ...ghostAircraft }); ghostAircraft = null; return; }
-    selectedIdx = placedAircraft.findIndex(ac => Math.hypot(ac.mX - pos.mX, ac.mY - pos.mY) < 10);
-    if(selectedIdx !== -1) { isDragging = true; updateInspector(); } else document.getElementById('inspector').classList.add('hidden');
-  };
-
-  canvas.onmouseup = () => isDragging = false;
+  // --- Animation & Draw ---
+  const mToP = (mX, mY) => ({ x: originX + (mX * scale), y: originY + (mY * scale) });
+  const pToM = (pX, pY) => ({ mX: (pX - originX) / scale, mY: (pY - originY) / scale });
 
   function animate() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     checkSafety();
     stands.forEach(s => {
       const p = mToP(s.mX, s.mY), w = s.Width * scale, l = s.Length * scale;
-      ctx.strokeStyle = '#94a3b8'; ctx.setLineDash([4, 4]); ctx.strokeRect(p.x - w/2, p.y - l/2, w, l);
-      ctx.beginPath(); ctx.setLineDash([]); ctx.strokeStyle = '#cbd5e1'; ctx.moveTo(p.x, p.y - l/2); ctx.lineTo(p.x, p.y + l/2); ctx.stroke();
-      ctx.fillStyle = '#1e293b'; ctx.font = 'bold 11px Inter'; ctx.textAlign = 'center';
-      ctx.fillText(`${s.StandID} (Code ${s.MaxCode})`, p.x, p.y - l/2 - 12);
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(s.Heading * Math.PI / 180);
+      
+      // Stand Box
+      ctx.strokeStyle = s.Status === 'active' ? '#94a3b8' : '#475569';
+      ctx.setLineDash([4, 4]); ctx.lineWidth = s.Status === 'active' ? 1 : 4;
+      ctx.strokeRect(-w/2, -l/2, w, l);
+      if(s.Status === 'closed') {
+          ctx.fillStyle = 'rgba(0,0,0,0.1)'; ctx.fillRect(-w/2, -l/2, w, l);
+      }
+      
+      // Centerline
+      ctx.beginPath(); ctx.setLineDash([]); ctx.strokeStyle = '#cbd5e1'; ctx.moveTo(0, -l/2); ctx.lineTo(0, l/2); ctx.stroke();
+      ctx.fillStyle = '#1e293b'; ctx.font = 'bold 10px Inter'; ctx.textAlign = 'center';
+      ctx.fillText(`${s.StandID} (${s.MaxCode})`, 0, -l/2 - 10);
+      ctx.restore();
     });
     placedAircraft.forEach((ac, i) => drawAircraft(ac, i === selectedIdx));
     if (ghostAircraft) { ctx.globalAlpha = 0.5; drawAircraft(ghostAircraft, true); ctx.globalAlpha = 1.0; }
@@ -275,8 +301,15 @@
   function drawAircraft(ac, isSelected) {
     const p = mToP(ac.mX, ac.mY), w = ac.WingSpan * scale, l = ac.Length * scale, mb = ac.NoseToMainGear * scale;
     ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(ac.heading * Math.PI / 180);
+    
+    // Safety Aura
     ctx.beginPath(); ctx.arc(0, 0, (ac.WingSpan/2 + safetyRules[ac.ICAO])*scale, 0, Math.PI*2);
-    ctx.fillStyle = ac.isSafe ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.15)'; ctx.fill();
+    ctx.fillStyle = ac.isSafe ? 'rgba(34, 197, 94, 0.08)' : 'rgba(239, 68, 68, 0.15)'; ctx.fill();
+
+    // Jet Blast Zone
+    ctx.fillStyle = 'rgba(14, 165, 233, 0.2)';
+    ctx.fillRect(-w/10, mb, w/5, ac.JetBlast * scale);
+
     if (ac.swing) {
         ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
         const pivotX = w/4, pivotY = mb, rad = Math.hypot(w/2 + pivotX, l - mb);
@@ -286,19 +319,33 @@
     ctx.fillStyle = isSelected ? '#0ea5e9' : (ac.isSafe ? ac.Color : '#ef4444');
     ctx.fillRect(-w/20, -mb, w/10, l); ctx.fillRect(-w/2, -mb + l*0.15, w, l/10); ctx.fillRect(-w/4, -mb + l*0.85, w/2, l/20);
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, -mb+l, 2, 0, Math.PI*2); ctx.fill();
-    if (!ac.isSafe) { ctx.rotate(-ac.heading * Math.PI / 180); ctx.fillStyle = '#b91c1c'; ctx.font = 'black 10px Inter'; ctx.fillText(`⚠️ ${ac.errorMsg}`, 0, -40); }
+    if (!ac.isSafe) { ctx.rotate(-ac.heading * Math.PI / 180); ctx.fillStyle = '#b91c1c'; ctx.font = 'black 10px Inter'; ctx.fillText(`⚠️ ${ac.errorMsg}`, 0, -45); }
     ctx.restore();
   }
 
+  // --- Rest of Event Logic ---
+  canvas.onmousemove = (e) => {
+    const r = canvas.getBoundingClientRect(); const pos = pToM(e.clientX - r.left, e.clientY - r.top);
+    if (ghostAircraft) { ghostAircraft.mX = pos.mX; ghostAircraft.mY = pos.mY; 
+        stands.forEach(s => { if(Math.abs(pos.mX - s.mX) < 10 && Math.abs(pos.mY - s.mY) < 15) { ghostAircraft.mX = s.mX; ghostAircraft.mY = s.mY; ghostAircraft.heading = 180; }});
+    } else if (isDragging && selectedIdx !== -1) { placedAircraft[selectedIdx].mX = pos.mX; placedAircraft[selectedIdx].mY = pos.mY; updateInspector(); }
+  };
+  canvas.onmousedown = (e) => {
+    const r = canvas.getBoundingClientRect(); const pos = pToM(e.clientX - r.left, e.clientY - r.top);
+    if (ghostAircraft) { placedAircraft.push({ ...ghostAircraft }); ghostAircraft = null; return; }
+    selectedIdx = placedAircraft.findIndex(ac => Math.hypot(ac.mX - pos.mX, ac.mY - pos.mY) < 10);
+    if(selectedIdx !== -1) { isDragging = true; updateInspector(); } else document.getElementById('inspector').classList.add('hidden');
+  };
+  canvas.onmouseup = () => isDragging = false;
+  function renderAircraftList() { document.getElementById('acList').innerHTML = aircraftTypes.map((type, i) => `<button onclick="pickGhost(${i})" class="w-full p-4 bg-white border-2 border-slate-100 rounded-2xl text-left hover:border-sky-400 transition flex justify-between items-center group shadow-sm"><div><b class="text-slate-800 text-sm">${type.Model}</b><br><span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">${type.WingSpan}m | Code ${type.ICAO}</span></div><i data-lucide="plus" class="w-4 h-4 text-slate-300 group-hover:text-sky-500"></i></button>`).join(''); lucide.createIcons(); }
+  function pickGhost(i) { ghostAircraft = { ...aircraftTypes[i], heading: 180, mX: 0, mY: 0, swing: false }; }
   function switchTab(t) { ['planner','stands','aircraft'].forEach(v => { document.getElementById('tab-'+v).classList.toggle('active', v===t); document.getElementById('view-'+v).classList.toggle('hidden', v!==t); }); }
   function toggleSwingOut() { if(selectedIdx !== -1) placedAircraft[selectedIdx].swing = document.getElementById('swingToggle').checked; }
   function rotateSelected(d) { if(selectedIdx !== -1) placedAircraft[selectedIdx].heading += d; }
   function deleteSelected() { if(selectedIdx !== -1) { placedAircraft.splice(selectedIdx, 1); selectedIdx = -1; document.getElementById('inspector').classList.add('hidden'); } }
-  function updateInspector() {
-    const ac = placedAircraft[selectedIdx]; document.getElementById('inspector').classList.remove('hidden');
-    document.getElementById('swingToggle').checked = ac.swing;
-    document.getElementById('insDetail').innerHTML = `${ac.Model}<br><span class="text-xs text-slate-400">Pos: ${ac.mX.toFixed(1)}m, ${ac.mY.toFixed(1)}m</span>`;
-  }
+  function updateInspector() { const ac = placedAircraft[selectedIdx]; document.getElementById('inspector').classList.remove('hidden'); document.getElementById('swingToggle').checked = ac.swing; document.getElementById('insDetail').innerHTML = `${ac.Model}<br><span class="text-xs text-slate-400">Pos: ${ac.mX.toFixed(1)}m, ${ac.mY.toFixed(1)}m</span>`; }
+  async function uiDeleteStand(id) { if(confirm('Delete Stand '+id+'?')) { await apiCall('deleteStand', {id}); await loadData(); } }
+  async function uiDeleteAircraft(id) { if(confirm('Delete '+id+'?')) { await apiCall('deleteAircraftType', {id}); await loadData(); } }
 </script>
 </body>
 </html>
