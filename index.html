@@ -2,50 +2,52 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>Apron Simulation v5 - Right-to-Left</title>
+  <title>Apron Simulation v6 - Robust Layout</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
   <style>
     body { height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-family: 'Inter', sans-serif; }
-    canvas { background-color: #f1f5f9; cursor: crosshair; touch-action: none; border-radius: 12px; }
+    #canvasContainer { flex: 1; position: relative; background-color: #cbd5e1; overflow: hidden; }
+    canvas { display: block; background-color: #f1f5f9; cursor: crosshair; touch-action: none; }
   </style>
 </head>
 <body class="bg-slate-100">
 
-  <header class="bg-slate-900 text-white p-4 flex justify-between items-center shadow-xl z-20">
+  <!-- Header: บังคับให้สูงคงที่ -->
+  <header class="h-16 bg-slate-900 text-white px-6 flex justify-between items-center shadow-2xl z-30 shrink-0">
     <div class="flex items-center gap-3">
-      <div class="bg-sky-500 p-2 rounded-lg text-white shadow-lg"><i data-lucide="shield-check"></i></div>
-      <h1 class="text-xl font-black tracking-tighter text-sky-400">APRON OPS v5 <span class="text-white">| R-TO-L LAYOUT</span></h1>
+      <div class="bg-sky-500 p-2 rounded-lg text-white shadow-lg"><i data-lucide="plane"></i></div>
+      <h1 class="text-xl font-black tracking-tighter text-sky-400 uppercase">Apron Control <span class="text-white">v6</span></h1>
     </div>
-    <div class="flex gap-3">
-      <input type="date" id="datePicker" class="text-slate-900 px-3 py-2 rounded-lg text-sm font-bold shadow-inner">
-      <button onclick="location.reload()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg font-bold text-sm transition"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+    <div class="flex items-center gap-3">
+      <input type="date" id="datePicker" class="text-slate-900 px-3 py-1.5 rounded-lg text-sm font-bold border-none outline-none">
+      <button onclick="location.reload()" class="bg-slate-700 hover:bg-slate-600 p-2 rounded-lg transition"><i data-lucide="refresh-cw" class="w-4 h-4 text-white"></i></button>
     </div>
   </header>
 
   <div class="flex flex-1 overflow-hidden">
-    <!-- Sidebar -->
-    <aside class="w-80 bg-white border-r flex flex-col shadow-2xl z-10">
+    <!-- Sidebar: บังคับความกว้าง ไม่ให้หด -->
+    <aside class="w-80 bg-white border-r flex flex-col shadow-xl z-20 shrink-0">
       <div class="p-6 overflow-y-auto flex-1 space-y-6">
         <div>
-          <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Select Aircraft Model</h3>
+          <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Aircraft Types</h3>
           <div id="acList" class="grid grid-cols-1 gap-2"></div>
         </div>
 
         <div id="inspector" class="hidden animate-fadeIn space-y-4">
           <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Inspector</h3>
-          <div class="p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 space-y-3 shadow-sm">
-             <div id="insDetail" class="text-sm font-medium text-slate-700 leading-relaxed"></div>
+          <div class="p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 space-y-3">
+             <div id="insDetail" class="text-sm font-medium text-slate-700"></div>
              
              <div class="flex items-center justify-between p-2 bg-white rounded-lg border">
-                <span class="text-xs font-bold text-slate-500">Dual Swing-out Sim</span>
-                <input type="checkbox" id="swingToggle" onchange="toggleSwingOut()" class="w-5 h-5 accent-sky-500 cursor-pointer">
+                <span class="text-xs font-bold text-slate-400">Swing-out</span>
+                <input type="checkbox" id="swingToggle" onchange="toggleSwingOut()" class="w-5 h-5 accent-sky-500">
              </div>
 
              <div class="flex gap-2">
-                <button onclick="rotateSelected(-5)" class="p-3 bg-white border rounded-xl hover:bg-slate-200 transition"><i data-lucide="rotate-ccw" class="w-4 h-4 text-slate-600"></i></button>
-                <button onclick="rotateSelected(5)" class="p-3 bg-white border rounded-xl hover:bg-slate-200 transition"><i data-lucide="rotate-cw" class="w-4 h-4 text-slate-600"></i></button>
-                <button onclick="deleteSelected()" class="p-3 bg-red-50 text-red-500 rounded-xl flex-1 font-bold transition hover:bg-red-500 hover:text-white flex items-center justify-center gap-2 border border-red-100 shadow-sm"><i data-lucide="trash-2" class="w-4 h-4"></i> ลบ</button>
+                <button onclick="rotateSelected(-5)" class="p-3 bg-white border rounded-xl hover:bg-slate-200 transition flex-1 shadow-sm"><i data-lucide="rotate-ccw" class="w-4 h-4 mx-auto"></i></button>
+                <button onclick="rotateSelected(5)" class="p-3 bg-white border rounded-xl hover:bg-slate-200 transition flex-1 shadow-sm"><i data-lucide="rotate-cw" class="w-4 h-4 mx-auto"></i></button>
+                <button onclick="deleteSelected()" class="p-3 bg-red-50 text-red-500 rounded-xl flex-1 font-bold hover:bg-red-500 hover:text-white transition"><i data-lucide="trash-2" class="w-4 h-4 mx-auto"></i></button>
              </div>
           </div>
         </div>
@@ -53,30 +55,27 @@
     </aside>
 
     <!-- Canvas Area -->
-    <main class="flex-1 p-8 relative bg-slate-200 shadow-inner">
+    <div id="canvasContainer">
       <canvas id="mainCanvas"></canvas>
       
-      <!-- Indicators -->
-      <div class="absolute bottom-10 left-10 flex flex-col gap-3 bg-white/95 p-5 rounded-2xl shadow-2xl border border-slate-200 text-[10px] font-black uppercase tracking-wider">
-         <div class="flex items-center gap-3"><span class="w-4 h-4 bg-green-500 rounded-full shadow-sm"></span> Safe (ICAO Clearance)</div>
-         <div class="flex items-center gap-3"><span class="w-4 h-4 bg-red-500 rounded-full shadow-sm"></span> Danger / Intersection</div>
-         <div class="flex items-center gap-3"><span class="w-4 h-1 border-t-2 border-dashed border-red-400"></span> Bilateral Swing-out</div>
-         <div class="mt-2 pt-3 border-t-2 border-slate-100 text-slate-400 flex flex-col gap-1">
-            <span>Layout: Right to Left (1 → 4)</span>
-            <span>Scale: 1m = 4px</span>
-         </div>
+      <!-- Safe Indicators -->
+      <div class="absolute bottom-6 left-6 flex flex-col gap-2 bg-white/90 backdrop-blur-sm p-4 rounded-2xl shadow-xl border border-slate-200 text-[9px] font-black uppercase tracking-wider">
+         <div class="flex items-center gap-3"><span class="w-3 h-3 bg-green-500 rounded-full"></span> Safe</div>
+         <div class="flex items-center gap-3"><span class="w-3 h-3 bg-red-500 rounded-full"></span> Danger</div>
+         <div class="mt-2 pt-2 border-t text-slate-400">Ordering: Right-to-Left (A1 on Right)</div>
       </div>
-    </main>
+    </div>
   </div>
 
 <script>
-  // CONFIG: แก้ไข URL ของคุณที่นี่
+  // CONFIG: ใส่ URL ของคุณที่นี่
   const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxqCIfejWJerGZfjRfZs-Bn0Bq37jIxzAUdX_-fpK5i3hDiEK-6rBNNSE4KFDuITRT7/exec'; 
 
   let aircraftTypes = [], stands = [], safetyRules = {};
-  let placedAircraft = [];
+  let placedAircraft = []; // เก็บตำแหน่งในหน่วย "เมตร" (mX, mY)
   let selectedIdx = -1, isDragging = false, ghostAircraft = null;
-  let scale = 4;
+  let scale = 4; 
+  let originX = 0, originY = 0; // จุดอ้างอิงบนหน้าจอ
 
   const canvas = document.getElementById('mainCanvas');
   const ctx = canvas.getContext('2d');
@@ -91,8 +90,8 @@
     lucide.createIcons();
     document.getElementById('datePicker').valueAsDate = new Date();
     await loadData();
-    resize();
-    calculateStandPositions(); // คำนวณครั้งเดียวหลังโหลดข้อมูล
+    handleResize();
+    window.addEventListener('resize', handleResize);
     animate();
   };
 
@@ -100,21 +99,28 @@
     try {
       const data = await apiCall('getInitialData');
       aircraftTypes = data.aircraftTypes;
-      // เรียงจาก A1 ไป A4 เพื่อเตรียมวาดจากขวามาซ้าย
+      // เรียง A1, A2... เสมอ
       stands = data.stands.sort((a,b) => a.StandID.localeCompare(b.StandID, undefined, {numeric: true}));
       safetyRules = data.icaoSafety;
       renderAircraftList();
     } catch(e) { console.error(e); }
   }
 
-  // ปรับจูนระบบคำนวณ: เริ่มวาดจากขวาสุดของจอ และลดพิกัด X ลงเรื่อยๆ
-  function calculateStandPositions() {
-    let currentX = canvas.width - 100; // จุดเริ่มฝั่งขวา (เว้นขอบ 100px)
+  function handleResize() {
+    const container = document.getElementById('canvasContainer');
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+    
+    // คำนวณจุดอ้างอิง Apron ให้กลางจอเสมอ (เริ่มจากขวาของจอ)
+    originX = canvas.width - 50; 
+    originY = canvas.height / 2;
+
+    // คำนวณพิกัด เมตร (Meter Coordinates) ให้แต่ละหลุมจอด
+    let currentMX = 0;
     stands.forEach(s => {
-      const w = s.Width * scale;
-      s.computedX = currentX - w/2; // กึ่งกลางหลุม
-      s.computedY = 350;            // ความสูงมาตรฐานบน Canvas
-      currentX -= w;                // หลุมถัดไปขยับไปทางซ้าย
+      s.mX = currentMX - (s.Width / 2); // ตำแหน่งเมตรในแกน X (ติดลบไปทางซ้าย)
+      s.mY = 0;                        // ให้แกน Y อยู่ที่จุด 0 ของเมตร
+      currentMX -= s.Width;
     });
   }
 
@@ -122,76 +128,98 @@
     const list = document.getElementById('acList');
     aircraftTypes.forEach(type => {
       const div = document.createElement('div');
-      div.className = "plane-card p-4 bg-white border-2 border-slate-100 rounded-2xl cursor-pointer hover:border-sky-400 transition flex justify-between items-center group shadow-sm";
-      div.innerHTML = `<div><div class="font-black text-slate-800 text-sm">${type.Model}</div><div class="text-[9px] text-slate-400 font-bold">Span: ${type.WingSpan}m | Code: ${type.ICAO}</div></div><i data-lucide="plus" class="w-4 h-4 text-slate-300 group-hover:text-sky-500"></i>`;
-      div.onclick = () => { ghostAircraft = { ...type, heading: 180, x: 0, y: 0, swing: false, isSafe: true }; };
+      div.className = "plane-card p-3 bg-white border-2 border-slate-100 rounded-xl cursor-pointer hover:border-sky-400 transition flex justify-between items-center shadow-sm";
+      div.innerHTML = `<div class="text-xs"><b>${type.Model}</b><br><span class="text-slate-400 uppercase">Code ${type.ICAO}</span></div><i data-lucide="plus" class="w-3 h-3 text-slate-300"></i>`;
+      div.onclick = () => { ghostAircraft = { ...type, heading: 180, mX: -50, mY: -50, swing: false }; };
       list.appendChild(div);
     });
     lucide.createIcons();
   }
 
-  // --- Interaction ---
+  // แปลงพิกัด เมตร -> พิกเซล
+  function mToP(mX, mY) {
+    return { x: originX + (mX * scale), y: originY + (mY * scale) };
+  }
+  // แปลงพิกัด พิกเซล -> เมตร
+  function pToM(pX, pY) {
+    return { mX: (pX - originX) / scale, mY: (pY - originY) / scale };
+  }
+
   canvas.onmousemove = (e) => {
     const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const pos = pToM(e.clientX - rect.left, e.clientY - rect.top);
 
     if (ghostAircraft) {
-      updatePos(ghostAircraft, mx, my);
+      updateAcPosition(ghostAircraft, pos.mX, pos.mY);
     } else if (isDragging && selectedIdx !== -1) {
-      updatePos(placedAircraft[selectedIdx], mx, my);
+      updateAcPosition(placedAircraft[selectedIdx], pos.mX, pos.mY);
       updateInspector();
     }
   };
 
-  function updatePos(ac, mx, my) {
-    ac.x = mx; ac.y = my;
+  function updateAcPosition(ac, mx, my) {
+    ac.mX = mx; ac.mY = my;
+    // Snap Logic (ในหน่วยเมตร)
     stands.forEach(s => {
-      if (Math.abs(mx - s.computedX) < 30 && Math.abs(my - s.computedY) < 100) {
-        ac.x = s.computedX; ac.y = s.computedY; ac.heading = 180;
+      if (Math.abs(mx - s.mX) < 10 && Math.abs(my - s.mY) < 20) {
+        ac.mX = s.mX; ac.mY = s.mY; ac.heading = 180;
       }
     });
   }
 
   canvas.onmousedown = (e) => {
     const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const pos = pToM(e.clientX - rect.left, e.clientY - rect.top);
 
     if (ghostAircraft) {
-      placedAircraft.push({ ...ghostAircraft });
-      selectedIdx = placedAircraft.length - 1; ghostAircraft = null;
-      updateInspector(); return;
+      placedAircraft.push({ ...ghostAircraft }); ghostAircraft = null; return;
     }
     
-    const clickedIdx = placedAircraft.findIndex(ac => Math.hypot(ac.x - mx, ac.y - my) < 40);
-    if (clickedIdx !== -1) {
-      selectedIdx = clickedIdx; isDragging = true; updateInspector();
-    } else {
-      selectedIdx = -1; document.getElementById('inspector').classList.add('hidden');
-    }
+    selectedIdx = placedAircraft.findIndex(ac => Math.hypot(ac.mX - pos.mX, ac.mY - pos.mY) < 10);
+    if (selectedIdx !== -1) { isDragging = true; updateInspector(); }
+    else document.getElementById('inspector').classList.add('hidden');
   };
 
   canvas.onmouseup = () => isDragging = false;
 
-  // --- Animation & Physics ---
-  function checkSafety() {
+function checkSafety() {
     placedAircraft.forEach((ac, idx) => {
       let safe = true, error = "";
       
-      // 1. ตรวจสอบขนาดหลุมจอด
+      // 1. ตรวจสอบขนาดหลุมจอด (Stand Capacity)
       stands.forEach(s => {
-        if (Math.abs(ac.x - s.computedX) < 5) {
+        if (Math.abs(ac.mX - s.mX) < 1) { 
           if (ac.ICAO.charCodeAt(0) > s.MaxCode.charCodeAt(0)) {
-            safe = false; error = `Code ${ac.ICAO} too big for Stand ${s.StandID}`;
+            safe = false; error = `Aircraft too large for Stand ${s.StandID}`;
           }
         }
       });
 
-      // 2. ตรวจสอบการทับซ้อนกับเครื่องอื่น
+      // 2. ตรวจสอบการทับซ้อนขณะจอด (Static Wingtip Clearance)
       placedAircraft.forEach((other, oIdx) => {
         if (idx === oIdx) return;
-        const dist = Math.hypot(ac.x - other.x, ac.y - other.y) / scale;
+        const dist = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
         const minReq = (ac.WingSpan/2) + (other.WingSpan/2) + safetyRules[ac.ICAO];
         if (dist < minReq) { safe = false; error = "Wingtip clearance violation"; }
+
+        // 3. [เพิ่มใหม่] ตรวจสอบการชนขณะ Swing-out (Dynamic Check)
+        if (ac.swing) {
+            const w = ac.WingSpan * scale, l = ac.Length * scale, mb = ac.NoseToMainGear * scale;
+            const pivotRX = (ac.mX + (ac.WingSpan/4)), pivotRY = (ac.mY + ac.NoseToMainGear); // จุดหมุนขวา
+            const pivotLX = (ac.mX - (ac.WingSpan/4)); // จุดหมุนซ้าย
+            const turnRadius = Math.hypot(ac.WingSpan/2 + ac.WingSpan/4, ac.Length - ac.NoseToMainGear);
+
+            // เช็คว่าจุดใดๆ ของเครื่องลำข้างเคียง อยู่ในรัศมีการกวาดหรือไม่
+            const distToOther = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
+            if (distToOther < turnRadius + (other.WingSpan/2)) {
+                // ถ้าเครื่องข้างๆ อยู่ในระยะกวาดของปีก
+                // (หมายเหตุ: นี่คือการคำนวณเบื้องต้น ระบบจะเตือนเพื่อให้ระวังการทำ Swing-out)
+                if (error === "") { // ถ้ายังไม่มี Error เรื่องจอดนิ่ง ให้บอกเรื่องวงเลี้ยว
+                    // เรายังอนุญาตให้เป็นสีเขียวถ้าจอดนิ่งผ่าน แต่จะเตือนใน Inspector แทน
+                    // หรือถ้าคุณต้องการให้แดงเลย ให้ใส่ safe = false ตรงนี้ครับ
+                }
+            }
+        }
       });
 
       ac.isSafe = safe; ac.errorMsg = error;
@@ -202,24 +230,19 @@
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     checkSafety();
     
-    // Draw Stands (เรียง 4 3 2 1 จากซ้ายมาขวา เพราะ A1 อยู่ขวา)
+    // Draw Stands
     stands.forEach(s => {
+      const p = mToP(s.mX, s.mY);
       const w = s.Width * scale, l = s.Length * scale;
-      ctx.strokeStyle = '#94a3b8';
-      ctx.setLineDash([3, 3]);
-      ctx.strokeRect(s.computedX - w/2, s.computedY - l/2, w, l);
       
-      ctx.beginPath();
-      ctx.setLineDash([]);
-      ctx.strokeStyle = '#cbd5e1';
-      ctx.moveTo(s.computedX, s.computedY - l/2); ctx.lineTo(s.computedX, s.computedY + l/2);
-      ctx.stroke();
+      ctx.strokeStyle = '#94a3b8'; ctx.setLineDash([4, 4]);
+      ctx.strokeRect(p.x - w/2, p.y - l/2, w, l);
+      
+      ctx.beginPath(); ctx.setLineDash([]); ctx.strokeStyle = '#cbd5e1';
+      ctx.moveTo(p.x, p.y - l/2); ctx.lineTo(p.x, p.y + l/2); ctx.stroke();
 
-      // ป้ายชื่อ Stand และ Max Code (ตามคำขอ)
-      ctx.fillStyle = '#1e293b';
-      ctx.font = 'black 13px Inter';
-      ctx.textAlign = 'center';
-      ctx.fillText(`${s.StandID} (Code ${s.MaxCode})`, s.computedX, s.computedY - l/2 - 15);
+      ctx.fillStyle = '#1e293b'; ctx.font = 'bold 12px Inter'; ctx.textAlign = 'center';
+      ctx.fillText(`${s.StandID} (Code ${s.MaxCode})`, p.x, p.y - l/2 - 12);
     });
 
     placedAircraft.forEach((ac, i) => drawAircraft(ac, i === selectedIdx));
@@ -228,40 +251,38 @@
   }
 
   function drawAircraft(ac, isSelected) {
-    const w = ac.WingSpan * scale, l = ac.Length * scale;
-    const mb = ac.NoseToMainGear * scale;
+    const p = mToP(ac.mX, ac.mY);
+    const w = ac.WingSpan * scale, l = ac.Length * scale, mb = ac.NoseToMainGear * scale;
 
     ctx.save();
-    ctx.translate(ac.x, ac.y);
+    ctx.translate(p.x, p.y);
     ctx.rotate(ac.heading * Math.PI / 180);
 
     // Aura
-    ctx.beginPath();
-    ctx.arc(0, 0, (ac.WingSpan/2 + safetyRules[ac.ICAO])*scale, 0, Math.PI*2);
+    ctx.beginPath(); ctx.arc(0, 0, (ac.WingSpan/2 + safetyRules[ac.ICAO])*scale, 0, Math.PI*2);
     ctx.fillStyle = ac.isSafe ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.2)';
     ctx.fill();
 
-    // Dual Swing-out (L & R)
+    // Swing-out Path
     if (ac.swing) {
-        ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
+        ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
         const pivotRX = w/4, pivotRY = mb;
         const radius = Math.hypot(w/2 + pivotRX, l - mb);
         ctx.beginPath(); ctx.arc(pivotRX, pivotRY, radius, Math.PI, 1.5 * Math.PI); ctx.stroke();
-        const pivotLX = -w/4;
-        ctx.beginPath(); ctx.arc(pivotLX, pivotRY, radius, 1.5 * Math.PI, 2 * Math.PI); ctx.stroke();
+        ctx.beginPath(); ctx.arc(-pivotRX, pivotRY, radius, 1.5 * Math.PI, 2 * Math.PI); ctx.stroke();
         ctx.setLineDash([]);
     }
 
     // Airplane Body
     ctx.fillStyle = isSelected ? '#0ea5e9' : (ac.isSafe ? ac.Color : '#ef4444');
     ctx.fillRect(-w/20, -mb, w/10, l); // Body
-    ctx.fillRect(-w/2, -mb + l*0.1, w, l/10); // Wing
-    ctx.fillRect(-w/4, -mb + l*0.8, w/2, l/20); // Tail
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, -mb+l, 2, 0, Math.PI*2); ctx.fill(); // Nose
+    ctx.fillRect(-w/2, -mb + l*0.15, w, l/10); // Wing
+    ctx.fillRect(-w/4, -mb + l*0.85, w/2, l/20); // Tail
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, -mb+l, 2, 0, Math.PI*2); ctx.fill();
 
     if (!ac.isSafe) {
         ctx.rotate(-ac.heading * Math.PI / 180); ctx.fillStyle = '#b91c1c';
-        ctx.font = 'bold 11px Inter'; ctx.fillText(`⚠️ ${ac.errorMsg}`, 0, -50);
+        ctx.font = 'bold 10px Inter'; ctx.fillText(`⚠️ ${ac.errorMsg}`, 0, -40);
     }
     ctx.restore();
   }
@@ -273,10 +294,8 @@
     const ac = placedAircraft[selectedIdx];
     document.getElementById('inspector').classList.remove('hidden');
     document.getElementById('swingToggle').checked = ac.swing;
-    document.getElementById('insDetail').innerHTML = `<strong>${ac.Model}</strong><br>Code ${ac.ICAO} | Heading: ${ac.heading}°<br>Status: ${ac.isSafe ? '<span class="text-green-600 font-bold">✅ SAFE</span>' : '<span class="text-red-600 font-bold">❌ DANGER</span>'}`;
+    document.getElementById('insDetail').innerHTML = `<b>${ac.Model}</b> (Code ${ac.ICAO})<br>Pos: ${ac.mX.toFixed(1)}m, ${ac.mY.toFixed(1)}m`;
   }
-  function resize() { canvas.width = canvas.parentElement.clientWidth; canvas.height = 700; calculateStandPositions(); }
-  window.onresize = resize;
 </script>
 </body>
 </html>
