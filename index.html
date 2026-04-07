@@ -223,12 +223,13 @@
     if(selectedIdx === -1) setTimeout(() => { container.scrollLeft = container.scrollWidth; }, 100);
   }
 
-  function checkSafety() {
+ function checkSafety() {
     let mathLog = "";
     placedAircraft.forEach((ac, idx) => {
         let safe = true, error = "";
         let stand = stands.find(s => ac.mX >= (s.mX - s.Width/2) && ac.mX <= (s.mX + s.Width/2) && ac.mY >= (s.mY - s.Length/2) && ac.mY <= (s.mY + s.Length/2));
         
+        // 1. ตรวจสอบขอบเขตหลุมจอด
         if (stand) {
             const noseVisualY = ac.mY + (ac.Length/2);
             const distFromBottom = (stand.mY + stand.Length/2) - noseVisualY;
@@ -244,6 +245,7 @@
             }
         } else { safe=false; error="อยู่นอกเขตหลุมจอด"; }
 
+        // 2. ตรวจสอบความปลอดภัยเทียบกับเครื่องข้างเคียง
         placedAircraft.forEach((other, oIdx) => {
             if (idx === oIdx) return;
             const dist = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
@@ -252,26 +254,32 @@
             
             if (clear < minReq) { safe=false; error = `ระยะห่างปีกอันตราย (${clear.toFixed(1)}ม.)`; }
 
-            if (ac.swing && safe) {
+            // --- ส่วนการคำนวณ Swing-out (แสดงผลตลอดเวลาที่เลือก) ---
+            if (idx === selectedIdx && ac.swing) {
                 const turnR = ac.NoseToMainGear / Math.sin((ac.SteeringAngle || 45) * Math.PI / 180);
                 const sweptR = Math.hypot(turnR + ac.WingSpan/2, ac.Length - ac.NoseToMainGear);
                 const distToOtherBody = dist - (other.WingSpan/2);
                 
-                if (distToOtherBody < sweptR) {
-                    safe = false; error = "วงเลี้ยวชนเครื่องข้างเคียง";
-                    if (idx === selectedIdx) {
-                        mathLog += `<div class="mt-3 p-2 bg-red-900/50 rounded-xl border border-red-500">`;
-                        mathLog += `<p class="text-white font-bold">ข้อมูลการชนขณะเลี้ยว</p>`;
-                        mathLog += `<p>รัศมีการกวาดปีก: ${sweptR.toFixed(2)} ม.</p>`;
-                        mathLog += `<p>ระยะห่างที่มีจริง: ${distToOtherBody.toFixed(2)} ม.</p>`;
-                        mathLog += `</div>`;
-                    }
-                }
+                // ตรวจสอบว่าชนหรือไม่
+                const isClash = distToOtherBody < sweptR;
+                if (isClash) { safe = false; error = "วงเลี้ยวชนเครื่องข้างเคียง"; }
+
+                // แสดงข้อมูลในแผง Math Panel
+                const boxColor = isClash ? "bg-red-900/50 border-red-500" : "bg-emerald-900/40 border-emerald-500";
+                const statusIcon = isClash ? "⚠️ ชน" : "✅ พ้น";
+
+                mathLog += `<div class="mt-3 p-3 rounded-xl border ${boxColor} animate-fadeIn">`;
+                mathLog += `<p class="text-white font-black text-[11px] mb-1">วิเคราะห์การเลี้ยว vs ${other.StandID || '?'}</p>`;
+                mathLog += `<div class="grid grid-cols-2 gap-1 text-[10px]">`;
+                mathLog += `<span class="text-slate-300">รัศมีกวาดปีก:</span> <span class="text-white text-right">${sweptR.toFixed(2)} ม.</span>`;
+                mathLog += `<span class="text-slate-300">ระยะห่างที่มีจริง:</span> <span class="text-white text-right">${distToOtherBody.toFixed(2)} ม.</span>`;
+                mathLog += `<span class="text-slate-300 font-bold">สถานะ:</span> <span class="font-bold text-right ${isClash?'text-red-400':'text-emerald-400'}">${statusIcon}</span>`;
+                mathLog += `</div></div>`;
             }
         });
         ac.isSafe = safe; ac.errorMsg = error;
     });
-    document.getElementById('mathOutput').innerHTML = mathLog || '<p class="text-slate-500 italic">เลือกเครื่องบินบนแผนผัง...</p>';
+    document.getElementById('mathOutput').innerHTML = mathLog || '<p class="text-slate-500 italic text-[10px]">เลือกเครื่องบินเพื่อตรวจสอบพารามิเตอร์...</p>';
     if (selectedIdx !== -1) updateInspector();
   }
 
