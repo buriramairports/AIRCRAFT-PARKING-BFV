@@ -233,19 +233,24 @@
             const noseVisualY = ac.mY + (ac.Length/2);
             const distFromBottom = (stand.mY + stand.Length/2) - noseVisualY;
             if (distFromBottom < -0.1) { safe=false; error="จมูกล้นเขตหัวหลุม"; }
+            const tailY = ac.mY - (ac.Length/2);
+            const tailDistFromTop = tailY - (stand.mY - stand.Length/2);
+            if (tailDistFromTop < Number(stand.TailLimit || 5)) { safe=false; error="ท้ายล้นเขต Taxiway"; }
             
             if (idx === selectedIdx) {
-                mathLog += `<p class="text-sky-300 font-black border-b border-sky-900 pb-1">PRECISION DATA</p>`;
-                mathLog += `<p>Nose from Head: ${distFromBottom.toFixed(2)}m</p>`;
+                mathLog += `<p class="text-sky-300 font-black border-b border-sky-900 pb-1 uppercase tracking-tighter">ข้อมูลพิกัดละเอียด</p>`;
+                mathLog += `<p>ระยะจมูกจากหัวหลุม: ${distFromBottom.toFixed(2)} ม.</p>`;
+                mathLog += `<p>ระยะหางจากท้ายหลุม: ${tailDistFromTop.toFixed(2)} ม.</p>`;
             }
-        } else { safe=false; error="นอกเขตหลุม"; }
+        } else { safe=false; error="อยู่นอกเขตหลุมจอด"; }
 
         placedAircraft.forEach((other, oIdx) => {
             if (idx === oIdx) return;
             const dist = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
             const minReq = safetySettings[ac.ICAO] || 4.5;
             const clear = dist - (ac.WingSpan/2 + other.WingSpan/2);
-            if (clear < minReq) { safe=false; error="ปีกอันตราย"; }
+            
+            if (clear < minReq) { safe=false; error = `ระยะห่างปีกอันตราย (${clear.toFixed(1)}ม.)`; }
 
             if (ac.swing && safe) {
                 const turnR = ac.NoseToMainGear / Math.sin((ac.SteeringAngle || 45) * Math.PI / 180);
@@ -253,12 +258,12 @@
                 const distToOtherBody = dist - (other.WingSpan/2);
                 
                 if (distToOtherBody < sweptR) {
-                    safe = false; error = "วงเลี้ยวชนเครื่องอื่น";
+                    safe = false; error = "วงเลี้ยวชนเครื่องข้างเคียง";
                     if (idx === selectedIdx) {
                         mathLog += `<div class="mt-3 p-2 bg-red-900/50 rounded-xl border border-red-500">`;
-                        mathLog += `<p class="text-white font-bold">Swing Collision Data</p>`;
-                        mathLog += `<p>Swept Radius: ${sweptR.toFixed(2)}m</p>`;
-                        mathLog += `<p>Actual Gap: ${distToOtherBody.toFixed(2)}m</p>`;
+                        mathLog += `<p class="text-white font-bold">ข้อมูลการชนขณะเลี้ยว</p>`;
+                        mathLog += `<p>รัศมีการกวาดปีก: ${sweptR.toFixed(2)} ม.</p>`;
+                        mathLog += `<p>ระยะห่างที่มีจริง: ${distToOtherBody.toFixed(2)} ม.</p>`;
                         mathLog += `</div>`;
                     }
                 }
@@ -281,23 +286,50 @@
     document.getElementById('insStatusText').innerText = ac.isSafe ? "✅ ปลอดภัย (SAFE)" : `⚠️ ${ac.errorMsg}`;
   }
 
-  function animate() {
+function animate() {
     ctx.clearRect(0, 0, canvas.width, canvas.height); checkSafety();
+    
+    // --- วาดหลุมจอด (Stands) ---
     stands.forEach(s => {
       const p = mToP(s.mX, s.mY), w = s.Width * scale, l = s.Length * scale;
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate((s.Heading || 0) * Math.PI / 180);
       ctx.strokeStyle = s.Status === 'active' ? '#94a3b8' : '#ef4444'; ctx.setLineDash([4, 4]); ctx.strokeRect(-w/2, -l/2, w, l);
-      ctx.beginPath(); ctx.setLineDash(s.ParentID ? [10, 5] : []); ctx.strokeStyle = "#facc15"; ctx.lineWidth = 3;
-      const t1Y = (l/2) - (Number(s.TMark1 || 15) * scale);
-      ctx.moveTo(0, -l/2); ctx.lineTo(0, t1Y); ctx.stroke();
-      ctx.setLineDash([]); ctx.lineWidth = 2;
-      [s.TMark1, s.TMark2].forEach(tm => { const tmY = (l/2) - (Number(tm) * scale); ctx.beginPath(); ctx.moveTo(-5*scale, tmY); ctx.lineTo(5*scale, tmY); ctx.stroke(); });
+      if(s.Status === 'closed') { ctx.fillStyle = 'rgba(239, 68, 68, 0.1)'; ctx.fillRect(-w/2, -l/2, w, l); }
+      ctx.beginPath(); ctx.setLineDash([]); ctx.strokeStyle = '#cbd5e1'; ctx.moveTo(0, -l/2); ctx.lineTo(0, l/2); ctx.stroke();
+      
       const fs = Math.max(9, 14 * (zoomPercent/100)); ctx.fillStyle = s.ParentID ? "#334155" : "#0f172a"; 
       const label = `${s.StandID} (${s.MaxCode})`; const tw = ctx.measureText(label).width;
       const lblY = s.ParentID ? (-l/2 - fs * 1.5) : (-l/2 - fs * 3.5);
-      ctx.fillRect(-tw/2 - 10, lblY - fs, tw + 20, fs * 1.8); ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.fillText(label, 0, lblY + (fs * 0.2));
+      ctx.fillRect(-tw/2 - 10, lblY - fs, tw + 20, fs * 1.8);
+      ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.fillText(label, 0, lblY + (fs * 0.2));
+      
+      // ส่วนที่เพิ่ม: วาดตัวเลขขนาดหลุมจอด (Width x Length)
+      ctx.fillStyle = "#64748b"; ctx.font = `bold ${fs*0.8}px Inter`;
+      ctx.fillText(`${s.Width} x ${s.Length} ม.`, 0, l/2 + fs + 5);
       ctx.restore();
     });
+
+    // --- วาดเส้นมิติระยะห่างระหว่างปีกเครื่องที่อยู่ติดกัน (Wingtip Lines) ---
+    // จัดเรียงเครื่องบินตามพิกัด X จากขวาไปซ้าย
+    let sortedAC = [...placedAircraft].sort((a,b) => b.mX - a.mX);
+    ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = "#475569";
+    for(let i=0; i < sortedAC.length - 1; i++) {
+        const acR = sortedAC[i], acL = sortedAC[i+1];
+        const distM = Math.abs(acR.mX - acL.mX);
+        const clearM = distM - (acR.WingSpan/2 + acL.WingSpan/2);
+        
+        // วาดเส้นประเชื่อมระหว่างปีกที่ใกล้กัน
+        const pR = mToP(acR.mX - acR.WingSpan/2, acR.mY);
+        const pL = mToP(acL.mX + acL.WingSpan/2, acL.mY);
+        ctx.beginPath(); ctx.moveTo(pR.x, pR.y); ctx.lineTo(pL.x, pL.y); ctx.stroke();
+        
+        // วาดตัวเลขระยะห่างเมตร
+        ctx.fillStyle = "#1e293b"; ctx.font = "bold 11px monospace"; ctx.textAlign="center";
+        ctx.fillText(clearM.toFixed(1) + "m", (pR.x + pL.x)/2, pR.y - 8);
+    }
+    ctx.setLineDash([]);
+
+    // วาดเครื่องบินทุกลำ
     placedAircraft.forEach((ac, i) => drawAircraft(ac, i === selectedIdx));
     if (ghostAircraft) { ctx.globalAlpha = 0.5; drawAircraft(ghostAircraft, true); ctx.globalAlpha = 1.0; }
     requestAnimationFrame(animate);
