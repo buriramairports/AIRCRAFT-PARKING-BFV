@@ -438,31 +438,58 @@
   function updateInspector() { const ac = placedAircraft[selectedIdx]; if(!ac) return; document.getElementById('activePlanePanel').classList.remove('hidden'); document.getElementById('noSelectionMsg').classList.add('hidden'); document.getElementById('swingToggle').checked = ac.swing; document.getElementById('insModel').innerText = ac.Model; const hdr = document.getElementById('insHeader'); hdr.className = ac.isSafe ? "p-5 bg-emerald-600 text-white rounded-3xl shadow-xl border-b-4 border-emerald-800" : "p-5 bg-red-600 text-white rounded-3xl shadow-xl border-b-4 border-red-800"; document.getElementById('insStatusText').innerText = ac.isSafe ? "✅ ปลอดภัย (SAFE)" : `⚠️ ${ac.errorMsg}`; }
   function renderSafetyConfig() { document.getElementById('safetyConfigList').innerHTML = Object.keys(safetySettings).map(code => `<div class="bg-white p-2 rounded-lg border text-center"><label class="text-[8px] text-slate-400">Code ${code}</label><input type="number" step="0.1" value="${safetySettings[code]}" id="safe-${code}" class="w-full text-xs font-bold border-none outline-none p-0 text-center"></div>`).join(''); }
   async function uiSaveSafety() { for (let c of Object.keys(safetySettings)) { const v = Number(document.getElementById(`safe-${c}`).value); await apiCall('saveSafety', { Code: c, MinClearance: v }); } showToast("อัปเดตมาตรฐานสำเร็จ"); await loadData(); }
-  function renderStandsTable() { document.getElementById('standsTable').innerHTML = stands.map((s, i) => `<div class="flex justify-between items-center p-2.5 bg-white border rounded-xl text-[10px] font-bold shadow-sm"><div>${s.StandID}</div><div class="flex gap-1"><button onclick="editStand(${i})" class="bg-sky-50 text-sky-600 p-1.5 rounded hover:bg-sky-500 hover:text-white transition shadow-sm">แก้ไข</button><button onclick="uiDeleteStand('${s.StandID}')" class="bg-red-50 text-red-400 p-1.5 rounded hover:bg-red-500 hover:text-white transition shadow-sm">ลบ</button></div></div>`).join(''); }
+  function renderStandsTable() {
+    const container = document.getElementById('standsTable');
+    if (!container) return;
+    
+    container.innerHTML = stands.map((s, i) => `
+      <div class="flex justify-between items-center p-2.5 bg-white border rounded-xl text-[10px] font-bold shadow-sm group mb-1 hover:border-sky-300 transition">
+        <div class="flex flex-col">
+           <span class="text-slate-800">${s.StandID}</span>
+           <span class="text-[8px] text-slate-400 font-normal uppercase">Code ${s.MaxCode} | ${s.Status}</span>
+        </div>
+        <div class="flex gap-1">
+          <button onclick="editStand(${i})" class="bg-sky-50 text-sky-600 px-2 py-1 rounded hover:bg-sky-500 hover:text-white transition shadow-sm">
+            แก้ไข
+          </button>
+          <button onclick="uiDeleteStand('${s.StandID}')" class="bg-red-50 text-red-400 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition shadow-sm">
+            ลบ
+          </button>
+        </div>
+      </div>`).join('');
+    lucide.createIcons();
+  }
   function renderAircraftTypeTable() { document.getElementById('aircraftTable').innerHTML = aircraftTypes.map((ac, i) => `<div class="flex justify-between items-center p-3 bg-white border rounded-xl text-[10px] font-bold shadow-sm group"><span>${ac.Model}</span><div class="flex gap-1"><button onclick="editAircraft(${i})" class="bg-sky-50 text-sky-600 p-1.5 rounded hover:bg-sky-500 hover:text-white transition shadow-sm">แก้ไข</button><button onclick="uiDeleteAircraft('${ac.Model}')" class="bg-red-50 text-red-400 p-1.5 rounded hover:bg-red-500 hover:text-white transition shadow-sm">ลบ</button></div></div>`).join(''); }
-  function editStand(i) {
+function editStand(i) {
     const s = stands[i];
-    if (!s) return;
-    // ดึงค่าใส่ฟอร์ม
-    document.getElementById('st-id').value = s.StandID;
-    document.getElementById('st-w').value = s.Width;
-    document.getElementById('st-l').value = s.Length;
+    if (!s) {
+        console.error("ไม่พบข้อมูลหลุมจอดที่เลือก");
+        return;
+    }
+
+    // 1. นำข้อมูลพื้นฐานใส่ฟอร์ม
+    document.getElementById('st-id').value = s.StandID || "";
+    document.getElementById('st-w').value = s.Width || 0;
+    document.getElementById('st-l').value = s.Length || 0;
     document.getElementById('st-heading').value = s.Heading || 0;
-    document.getElementById('st-code').value = s.MaxCode;
-    document.getElementById('st-status').value = s.Status || 'active';
-    document.getElementById('st-parent').value = s.ParentID || "";
-    document.getElementById('st-offset').value = s.OffsetX || 0;
+    document.getElementById('st-code').value = s.MaxCode || "C";
+    document.getElementById('st-status').value = s.Status || "active";
+
+    // 2. นำข้อมูล T-Mark และ Boundary ใส่ฟอร์ม
     document.getElementById('st-t1').value = s.TMark1 || 15;
     document.getElementById('st-t2').value = s.TMark2 || 20;
     document.getElementById('st-tail').value = s.TailLimit || 5;
     document.getElementById('st-border-l').value = s.LeftBorder || 0;
     document.getElementById('st-border-r').value = s.RightBorder || 0;
-    
-    // เปลี่ยนหัวข้อฟอร์ม
-    document.getElementById('standFormTitle').innerText = "แก้ไขหลุมจอด: " + s.StandID;
-    // เปิด Modal
+
+    // 3. จัดการระบบหลุมหลัก/ย่อย (Parent/Child)
+    updateParentDropdown(); // รีเฟรชรายชื่อหลุมใน Dropdown ก่อนเลือก
+    document.getElementById('st-parent').value = s.ParentID || "";
+    document.getElementById('st-offset').value = s.OffsetX || 0;
+
+    // 4. เปลี่ยนชื่อหัวข้อ Modal และสั่งแสดงหน้าต่าง
+    document.getElementById('standFormTitle').innerText = "แก้ไขข้อมูลหลุมจอด: " + s.StandID;
     document.getElementById('modalStand').classList.add('active');
-    updateParentDropdown();
   }
     function editAircraft(i) {
     const ac = aircraftTypes[i];
