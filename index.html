@@ -304,18 +304,22 @@ function checkSafety() {
 
             if (idx === selectedIdx) {
                 mathLog += `<p class="text-sky-300 font-black border-b border-sky-900 pb-1 uppercase tracking-tighter">Stand Info: ${stand.StandID}</p>`;
-                mathLog += `<p>ระยะจมูก-หัวหลุม: ${distFromBottom.toFixed(2)} ม.</p>`;
-                mathLog += `<p>ระยะหาง-ท้ายหลุม: ${tailDistFromTop.toFixed(2)} ม.</p>`;
+                mathLog += `<p>จมูก-หัวหลุม: ${distFromBottom.toFixed(2)} ม. | ท้าย-Taxiway: ${tailDistFromTop.toFixed(2)} ม.</p>`;
             }
         } else { staticSafe = false; error = "อยู่นอกเขตหลุมจอด"; }
+
+        // เตรียมตัวแปรหาลำที่ใกล้ที่สุด 2 ฝั่ง (สำหรับ Math Panel)
+        let nearL = null, nearR = null;
+        let minDistL = Infinity, minDistR = Infinity;
 
         placedAircraft.forEach((other, oIdx) => {
             if (idx === oIdx) return;
             const dist = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
             const minReq = safetySettings[ac.ICAO] || 4.5;
             const clear = dist - (ac.WingSpan / 2 + other.WingSpan / 2);
-            const isOtherOnLeftOfScreen = (other.mX < ac.mX); 
+            const isOtherOnLeftOfScreen = (other.mX < ac.mX); // Screen Left = Pilot Right
 
+            // เช็คความปลอดภัยพื้นฐาน (ทุกเครื่องรอบข้าง)
             if (clear < minReq) { 
                 staticSafe = false; 
                 if (isOtherOnLeftOfScreen) rightSafe = false; else leftSafe = false;
@@ -326,29 +330,44 @@ function checkSafety() {
                 const turnR = ac.NoseToMainGear / Math.sin((ac.SteeringAngle || 45) * Math.PI / 180);
                 const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.Length - ac.NoseToMainGear);
                 const distToOtherBody = dist - (other.WingSpan / 2);
-
                 if (distToOtherBody < sweptR) {
                     if (isOtherOnLeftOfScreen) rightSafe = false; else leftSafe = false;
                 }
+            }
 
-                // --- ส่วนที่ดึงกลับมา: แสดงผลการเปรียบเทียบใน Math Panel ---
-                if (idx === selectedIdx) {
-                    let otherStand = findBestStand(other);
-                    let otherRefName = otherStand ? `Stand ${otherStand.StandID}` : other.Model;
-                    const isClash = distToOtherBody < sweptR;
-                    const sideLabel = isOtherOnLeftOfScreen ? "ขวา (Right)" : "ซ้าย (Left)";
-                    const boxColor = isClash ? "bg-red-900/50 border-red-500" : "bg-emerald-900/40 border-emerald-500";
-                    
-                    mathLog += `<div class="mt-3 p-3 rounded-xl border ${boxColor} animate-fadeIn shadow-lg">`;
-                    mathLog += `<p class="text-white font-black text-[11px] mb-1">เทียบฝั่ง${sideLabel} vs ${otherRefName}</p>`;
-                    mathLog += `<div class="grid grid-cols-2 gap-1 text-[10px]">`;
-                    mathLog += `<span class="text-slate-300">รัศมีกวาดที่ต้องการ:</span> <span class="text-white text-right">${sweptR.toFixed(2)} ม.</span>`;
-                    mathLog += `<span class="text-slate-300">ระยะว่างจริง:</span> <span class="text-white text-right">${distToOtherBody.toFixed(2)} ม.</span>`;
-                    mathLog += `<span class="text-slate-300 font-bold">ผลการคำนวณ:</span> <span class="font-bold text-right ${isClash ? 'text-red-400' : 'text-emerald-400'}">${isClash?'⚠️ ชน/ไม่พ้น':'✅ พ้น'}</span>`;
-                    mathLog += `</div></div>`;
+            // คัดกรองลำที่ใกล้ที่สุด (เฉพาะเครื่องที่เลือก)
+            if (idx === selectedIdx) {
+                if (other.mX >= ac.mX) { // ฝั่งซ้ายนักบิน (Screen Right)
+                    if (dist < minDistL) { minDistL = dist; nearL = other; }
+                } else { // ฝั่งขวานักบิน (Screen Left)
+                    if (dist < minDistR) { minDistR = dist; nearR = other; }
                 }
             }
         });
+
+        // แสดงผลเปรียบเทียบเฉพาะลำที่ใกล้ที่สุดใน Math Panel
+        if (idx === selectedIdx) {
+            [ {obj: nearL, side: "ซ้าย (Left)"}, {obj: nearR, side: "ขวา (Right)"} ].forEach(item => {
+                if (!item.obj) return;
+                const other = item.obj;
+                const dist = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
+                const otherStand = findBestStand(other);
+                const otherRef = otherStand ? `Stand ${otherStand.StandID}` : other.Model;
+                
+                const turnR = ac.NoseToMainGear / Math.sin((ac.SteeringAngle || 45) * Math.PI / 180);
+                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.Length - ac.NoseToMainGear);
+                const distToBody = dist - (other.WingSpan / 2);
+                const isClash = ac.swing ? (distToBody < sweptR) : (dist - (ac.WingSpan/2 + other.WingSpan/2) < (safetySettings[ac.ICAO]||4.5));
+
+                mathLog += `<div class="mt-2 p-2 rounded-xl border ${isClash ? 'bg-red-900/40 border-red-500' : 'bg-emerald-900/30 border-emerald-500'} animate-fadeIn">`;
+                mathLog += `<p class="text-white font-black text-[10px] mb-1 uppercase">ใกล้ที่สุดฝั่ง${item.side} ➔ ${otherRef}</p>`;
+                mathLog += `<div class="grid grid-cols-2 gap-x-2 text-[10px]">`;
+                mathLog += `<span class="text-slate-400">ระยะกวาดที่ต้องการ:</span> <span class="text-white text-right">${sweptR.toFixed(2)} ม.</span>`;
+                mathLog += `<span class="text-slate-400">ระยะห่างถึงลำข้าง:</span> <span class="text-white text-right">${distToBody.toFixed(2)} ม.</span>`;
+                mathLog += `<span class="font-bold text-slate-300">สถานะ:</span> <span class="font-bold text-right ${isClash ? 'text-red-400' : 'text-emerald-400'}">${isClash ? '⚠️ ชน/อันตราย' : '✅ ปลอดภัย'}</span>`;
+                mathLog += `</div></div>`;
+            });
+        }
 
         ac.isSafe = staticSafe && leftSafe && rightSafe;
         ac.leftSafe = leftSafe; ac.rightSafe = rightSafe;
