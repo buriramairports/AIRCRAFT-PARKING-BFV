@@ -294,10 +294,11 @@ function checkSafety() {
             if (ac.ICAO.charCodeAt(0) > stand.MaxCode.charCodeAt(0)) { staticSafe = false; error = "เครื่องใหญ่เกินขนาดหลุม"; }
             if (stand.Status === 'closed') { staticSafe = false; error = "หลุมจอดปิดใช้งาน"; }
             
-            // ตรวจสอบวงเลี้ยวเทียบกับขอบหลุม (Borders)
+            // --- จุดที่ 1: ตรวจสอบวงเลี้ยวเทียบกับขอบหลุม (Borders) ---
             if (ac.swing) {
-                const turnR = ac.NoseToMainGear / Math.sin((ac.SteeringAngle || 45) * Math.PI / 180);
-                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.Length - ac.NoseToMainGear);
+                const wheelbase = ac.Wheelbase || (ac.NoseToMainGear * 0.75); // ใช้ฐานล้อจริง
+                const turnR = wheelbase / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
+                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25); // อ้างอิงตำแหน่งปีก
                 if (stand.LeftBorder && sweptR > Number(stand.LeftBorder)) leftSafe = false;
                 if (stand.RightBorder && sweptR > Number(stand.RightBorder)) rightSafe = false;
             }
@@ -308,7 +309,6 @@ function checkSafety() {
             }
         } else { staticSafe = false; error = "อยู่นอกเขตหลุมจอด"; }
 
-        // เตรียมตัวแปรหาลำที่ใกล้ที่สุด 2 ฝั่ง (สำหรับ Math Panel)
         let nearL = null, nearR = null;
         let minDistL = Infinity, minDistR = Infinity;
 
@@ -317,35 +317,31 @@ function checkSafety() {
             const dist = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
             const minReq = safetySettings[ac.ICAO] || 4.5;
             const clear = dist - (ac.WingSpan / 2 + other.WingSpan / 2);
-            const isOtherOnLeftOfScreen = (other.mX < ac.mX); // Screen Left = Pilot Right
+            const isOtherOnLeftOfScreen = (other.mX < ac.mX); 
 
-            // เช็คความปลอดภัยพื้นฐาน (ทุกเครื่องรอบข้าง)
             if (clear < minReq) { 
                 staticSafe = false; 
                 if (isOtherOnLeftOfScreen) rightSafe = false; else leftSafe = false;
                 if (error === "") error = "ระยะปีกอันตราย"; 
             }
 
+            // --- จุดที่ 2: ตรวจสอบวงเลี้ยวเทียบกับเครื่องลำข้างๆ ---
             if (ac.swing) {
-                const turnR = ac.NoseToMainGear / Math.sin((ac.SteeringAngle || 45) * Math.PI / 180);
-                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.Length - ac.NoseToMainGear);
+                const wheelbase = ac.Wheelbase || (ac.NoseToMainGear * 0.75);
+                const turnR = wheelbase / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
+                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25);
                 const distToOtherBody = dist - (other.WingSpan / 2);
                 if (distToOtherBody < sweptR) {
                     if (isOtherOnLeftOfScreen) rightSafe = false; else leftSafe = false;
                 }
             }
 
-            // คัดกรองลำที่ใกล้ที่สุด (เฉพาะเครื่องที่เลือก)
             if (idx === selectedIdx) {
-                if (other.mX >= ac.mX) { // ฝั่งซ้ายนักบิน (Screen Right)
-                    if (dist < minDistL) { minDistL = dist; nearL = other; }
-                } else { // ฝั่งขวานักบิน (Screen Left)
-                    if (dist < minDistR) { minDistR = dist; nearR = other; }
-                }
+                if (other.mX >= ac.mX) { if (dist < minDistL) { minDistL = dist; nearL = other; } } 
+                else { if (dist < minDistR) { minDistR = dist; nearR = other; } }
             }
         });
 
-        // แสดงผลเปรียบเทียบเฉพาะลำที่ใกล้ที่สุดใน Math Panel
         if (idx === selectedIdx) {
             [ {obj: nearL, side: "ซ้าย (Left)"}, {obj: nearR, side: "ขวา (Right)"} ].forEach(item => {
                 if (!item.obj) return;
@@ -354,15 +350,17 @@ function checkSafety() {
                 const otherStand = findBestStand(other);
                 const otherRef = otherStand ? `Stand ${otherStand.StandID}` : other.Model;
                 
-                const turnR = ac.NoseToMainGear / Math.sin((ac.SteeringAngle || 45) * Math.PI / 180);
-                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.Length - ac.NoseToMainGear);
+                // --- จุดที่ 3: คำนวณเพื่อแสดงผลใน Math Panel ---
+                const wheelbase = ac.Wheelbase || (ac.NoseToMainGear * 0.75);
+                const turnR = wheelbase / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
+                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25);
                 const distToBody = dist - (other.WingSpan / 2);
                 const isClash = ac.swing ? (distToBody < sweptR) : (dist - (ac.WingSpan/2 + other.WingSpan/2) < (safetySettings[ac.ICAO]||4.5));
 
                 mathLog += `<div class="mt-2 p-2 rounded-xl border ${isClash ? 'bg-red-900/40 border-red-500' : 'bg-emerald-900/30 border-emerald-500'} animate-fadeIn">`;
                 mathLog += `<p class="text-white font-black text-[10px] mb-1 uppercase">ใกล้ที่สุดฝั่ง${item.side} ➔ ${otherRef}</p>`;
                 mathLog += `<div class="grid grid-cols-2 gap-x-2 text-[10px]">`;
-                mathLog += `<span class="text-slate-400">ระยะกวาดที่ต้องการ:</span> <span class="text-white text-right">${sweptR.toFixed(2)} ม.</span>`;
+                mathLog += `<span class="text-slate-400">รัศมีกวาด (R):</span> <span class="text-white text-right">${sweptR.toFixed(2)} ม.</span>`;
                 mathLog += `<span class="text-slate-400">ระยะห่างถึงลำข้าง:</span> <span class="text-white text-right">${distToBody.toFixed(2)} ม.</span>`;
                 mathLog += `<span class="font-bold text-slate-300">สถานะ:</span> <span class="font-bold text-right ${isClash ? 'text-red-400' : 'text-emerald-400'}">${isClash ? '⚠️ ชน/อันตราย' : '✅ ปลอดภัย'}</span>`;
                 mathLog += `</div></div>`;
