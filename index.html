@@ -322,12 +322,14 @@ function checkSafety() {
 
             if (dist < jetLimit) isJetViolation = true;
 
+            // ตรวจสอบความปลอดภัยขณะจอดนิ่ง (Static)
             if (clear < minReq) { 
                 staticSafe = false; 
                 if (isOtherOnLeftOfScreen) rightSafe = false; else leftSafe = false;
-                if (error === "") error = "ระยะปีกอันตราย"; 
+                if (error === "") error = "ระยะปีกจอดนิ่งไม่ปลอดภัย"; 
             }
 
+            // ตรวจสอบวงเลี้ยว (Dynamic)
             if (ac.swing) {
                 const wheelbase = Number(ac.Wheelbase) || (Number(ac.NoseToMainGear) * 0.75);
                 const turnR = wheelbase / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
@@ -344,51 +346,51 @@ function checkSafety() {
             }
         });
 
-        if (ac.swing && isJetViolation) {
-            leftSafe = false; rightSafe = false;
-            error = "ห้ามเลี้ยว: อันตรายจาก Jet Blast";
-        }
+        if (ac.swing && isJetViolation) { leftSafe = false; rightSafe = false; error = "ห้ามเลี้ยว: อันตรายจาก Jet Blast"; }
 
         if (idx === selectedIdx) {
-            const absMinDist = Math.min(minDistL, minDistR);
-            const jetColor = isJetViolation ? 'text-red-400' : 'text-emerald-400';
-            mathLog += `<div class="mt-2 text-[10px] font-bold py-1 px-2 rounded bg-slate-800/50 border border-slate-700">`;
-            mathLog += `Jet Blast Limit: ${jetLimit.toFixed(1)} ม. | ระยะจริงใกล้สุด: <span class="${jetColor}">${absMinDist === Infinity ? 'N/A' : absMinDist.toFixed(2)} ม.</span>`;
-            mathLog += `</div>`;
-
             [ {obj: nearL, side: "ซ้าย (Left)"}, {obj: nearR, side: "ขวา (Right)"} ].forEach(item => {
                 if (!item.obj && !(ac.swing && isJetViolation)) return;
-                
                 const other = item.obj;
+                const dist = other ? Math.hypot(ac.mX - other.mX, ac.mY - other.mY) : 0;
+                
+                // --- 1. ข้อมูลขณะจอดนิ่ง (Static Parking) ---
+                let staticClearance = other ? dist - (ac.WingSpan / 2 + other.WingSpan / 2) : 0;
+                let staticPass = staticClearance >= minReq;
+                
+                // --- 2. ข้อมูลขณะเลี้ยว (Dynamic Swing) ---
                 const wheelbase = Number(ac.Wheelbase) || (Number(ac.NoseToMainGear) * 0.75);
                 const turnR = wheelbase / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
                 const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25) + minReq;
-                
-                let distToBody = 999;
-                let reason = "";
-                let isClash = false;
-
-                if (other) {
-                    const dist = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
-                    distToBody = dist - (other.WingSpan / 2);
-                    if (ac.swing) {
-                        if (distToBody < sweptR) { isClash = true; reason = "ปีกไม่พ้น"; }
-                        else if (isJetViolation) { isClash = true; reason = "Jet Blast อันตราย"; }
-                    }
-                } else if (ac.swing && isJetViolation) {
-                    isClash = true; reason = "Jet Blast ฝั่งตรงข้าม";
+                let distToBody = other ? dist - (other.WingSpan / 2) : 999;
+                let swingPass = ac.swing ? (distToBody >= sweptR && !isJetViolation) : true;
+                let swingReason = "";
+                if (ac.swing) {
+                    if (distToBody < sweptR) swingReason = "ปีกไม่พ้น";
+                    else if (isJetViolation) swingReason = "Jet Blast อันตราย";
                 }
 
                 const otherName = other ? (findBestStand(other) ? `Stand ${findBestStand(other).StandID}` : other.Model) : "ไม่มีเครื่องบิน";
-                const cardColor = isClash ? 'bg-red-900/40 border-red-500' : 'bg-emerald-900/30 border-emerald-500';
-
-                mathLog += `<div class="mt-2 p-3 rounded-xl border ${cardColor} animate-fadeIn shadow-lg">`;
-                mathLog += `<p class="text-white font-black text-[10px] mb-1 uppercase">สถานะการเลี้ยว${item.side} ➔ ${otherName}</p>`;
-                mathLog += `<div class="grid grid-cols-2 gap-x-2 text-[10px] border-t border-white/10 pt-1">`;
-                mathLog += `<span class="text-slate-400">รัศมีปลอดภัย (R):</span> <span class="text-white text-right">${sweptR.toFixed(2)} ม.</span>`;
-                mathLog += `<span class="text-slate-400">ระยะจริงถึงลำข้าง:</span> <span class="text-white text-right">${distToBody === 999 ? '-' : distToBody.toFixed(2)} ม.</span>`;
-                mathLog += `<span class="font-bold text-slate-300">ผลสรุป:</span> <span class="font-bold text-right ${isClash ? 'text-red-400' : 'text-emerald-400'}">${isClash ? '⚠️ ' + reason : '✅ ปลอดภัย'}</span>`;
+                
+                mathLog += `<div class="mt-3 p-3 rounded-2xl border bg-slate-800/80 border-slate-600 shadow-xl animate-fadeIn">`;
+                mathLog += `<p class="text-sky-400 font-black text-[11px] mb-2 border-b border-white/10 pb-1">ฝั่ง${item.side} vs ${otherName}</p>`;
+                
+                // แสดงผลส่วนการจอด
+                mathLog += `<div class="mb-2">`;
+                mathLog += `<p class="text-[9px] text-slate-400 uppercase font-bold">● สถานะการจอดนิ่ง (Static)</p>`;
+                mathLog += `<div class="grid grid-cols-2 text-[10px] pl-2">`;
+                mathLog += `<span>ระยะห่างปลายปีก:</span> <span class="text-right ${staticPass?'text-emerald-400':'text-red-400'}">${other ? staticClearance.toFixed(2) : '-'} ม. (Min: ${minReq}ม.)</span>`;
+                mathLog += `<span>ผลลัพธ์การจอด:</span> <span class="text-right font-bold ${staticPass?'text-emerald-400':'text-red-400'}">${staticPass?'✅ ปลอดภัย':'⚠️ ใกล้เกินไป'}</span>`;
                 mathLog += `</div></div>`;
+
+                // แสดงผลส่วนการเลี้ยว
+                mathLog += `<div>`;
+                mathLog += `<p class="text-[9px] text-slate-400 uppercase font-bold">● สถานะขณะเลี้ยว (Dynamic)</p>`;
+                mathLog += `<div class="grid grid-cols-2 text-[10px] pl-2">`;
+                mathLog += `<span>รัศมีปลอดภัย (R):</span> <span class="text-right text-white">${sweptR.toFixed(2)} ม.</span>`;
+                mathLog += `<span>ระยะว่างกวาดปีก:</span> <span class="text-right text-white">${distToBody===999?'-':distToBody.toFixed(2)} ม.</span>`;
+                mathLog += `<span class="font-bold">ผลลัพธ์การเลี้ยว:</span> <span class="text-right font-bold ${swingPass?'text-emerald-400':'text-red-400'}">${swingPass?'✅ พ้น':'⚠️ '+swingReason}</span>`;
+                mathLog += `</div></div></div>`;
             });
         }
 
