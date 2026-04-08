@@ -165,10 +165,59 @@
   let placedAircraft = [], selectedIdx = -1, ghostAircraft = null;
   let baseScale = 4, zoomPercent = 100, scale = 4, originX = 0, originY = 0;
   let isDraggingAC = false;
-
+let stands = [];
   const canvas = document.getElementById('mainCanvas');
   const ctx = canvas.getContext('2d');
 
+  //
+// กำหนดฟังก์ชันให้เป็น Global เพื่อให้ปุ่มในตารางเรียกหาเจอเสมอ
+  window.editStand = function(i) {
+    console.log("กำลังแก้ไขหลุมจอดลำดับที่:", i);
+    const s = stands[i];
+    if (!s) {
+      alert("ไม่พบข้อมูลหลุมจอดที่ต้องการแก้ไข");
+      return;
+    }
+
+    try {
+      // 1. นำข้อมูลใส่ฟิลด์มาตรฐาน
+      document.getElementById('st-id').value = s.StandID || "";
+      document.getElementById('st-w').value = s.Width || 0;
+      document.getElementById('st-l').value = s.Length || 0;
+      document.getElementById('st-heading').value = s.Heading || 0;
+      document.getElementById('st-code').value = s.MaxCode || "C";
+      document.getElementById('st-status').value = s.Status || "active";
+
+      // 2. นำข้อมูล T-Mark และ Boundary ใส่ฟิลด์
+      document.getElementById('st-t1').value = s.TMark1 || 15;
+      document.getElementById('st-t2').value = s.TMark2 || 20;
+      document.getElementById('st-tail').value = s.TailLimit || 5;
+      document.getElementById('st-border-l').value = s.LeftBorder || 0;
+      document.getElementById('st-border-r').value = s.RightBorder || 0;
+
+      // 3. จัดการระบบ MARS (หลุมแม่/ลูก)
+      if (typeof updateParentDropdown === "function") {
+          updateParentDropdown();
+      }
+      document.getElementById('st-parent').value = s.ParentID || "";
+      document.getElementById('st-offset').value = s.OffsetX || 0;
+
+      // 4. เปลี่ยนหัวข้อฟอร์มและเปิด Modal
+      const formTitle = document.getElementById('standFormTitle');
+      if (formTitle) formTitle.innerText = "แก้ไขข้อมูลหลุมจอด: " + s.StandID;
+      
+      const modal = document.getElementById('modalStand');
+      if (modal) {
+          modal.classList.add('active');
+          console.log("เปิดหน้าต่างแก้ไขสำเร็จ");
+      } else {
+          console.error("ไม่พบ Element 'modalStand'");
+      }
+    } catch (err) {
+      console.error("เกิดข้อผิดพลาดขณะเตรียมข้อมูลแก้ไข:", err);
+    }
+  };
+  //
   async function apiCall(action, data = {}) {
     showLoader(true);
     try {
@@ -442,22 +491,28 @@
     const container = document.getElementById('standsTable');
     if (!container) return;
     
+    // ตรวจสอบว่ามีข้อมูลในตัวแปร stands หรือไม่
+    if (!stands || stands.length === 0) {
+      container.innerHTML = '<div class="text-center py-4 text-slate-400 text-xs">ไม่พบข้อมูลหลุมจอด</div>';
+      return;
+    }
+    
     container.innerHTML = stands.map((s, i) => `
       <div class="flex justify-between items-center p-2.5 bg-white border rounded-xl text-[10px] font-bold shadow-sm group mb-1 hover:border-sky-300 transition">
         <div class="flex flex-col">
-           <span class="text-slate-800">${s.StandID}</span>
+           <span class="text-slate-800 font-black">${s.StandID}</span>
            <span class="text-[8px] text-slate-400 font-normal uppercase">Code ${s.MaxCode} | ${s.Status}</span>
         </div>
         <div class="flex gap-1">
-          <button onclick="editStand(${i})" class="bg-sky-50 text-sky-600 px-2 py-1 rounded hover:bg-sky-500 hover:text-white transition shadow-sm">
+          <!-- บังคับให้เรียกใช้ window.editStand เพื่อป้องกันเรื่อง Scope -->
+          <button type="button" onclick="window.editStand(${i})" class="bg-sky-50 text-sky-600 px-3 py-1.5 rounded-lg hover:bg-sky-500 hover:text-white transition shadow-sm cursor-pointer">
             แก้ไข
           </button>
-          <button onclick="uiDeleteStand('${s.StandID}')" class="bg-red-50 text-red-400 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition shadow-sm">
+          <button type="button" onclick="window.uiDeleteStand('${s.StandID}')" class="bg-red-50 text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-500 hover:text-white transition shadow-sm cursor-pointer">
             ลบ
           </button>
         </div>
       </div>`).join('');
-    lucide.createIcons();
   }
   function renderAircraftTypeTable() { document.getElementById('aircraftTable').innerHTML = aircraftTypes.map((ac, i) => `<div class="flex justify-between items-center p-3 bg-white border rounded-xl text-[10px] font-bold shadow-sm group"><span>${ac.Model}</span><div class="flex gap-1"><button onclick="editAircraft(${i})" class="bg-sky-50 text-sky-600 p-1.5 rounded hover:bg-sky-500 hover:text-white transition shadow-sm">แก้ไข</button><button onclick="uiDeleteAircraft('${ac.Model}')" class="bg-red-50 text-red-400 p-1.5 rounded hover:bg-red-500 hover:text-white transition shadow-sm">ลบ</button></div></div>`).join(''); }
 function editStand(i) {
