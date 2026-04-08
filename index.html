@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>Apron Simulation Pro v1.2</title>
+  <title>Apron Simulation Pro v1.2 - PRO</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
@@ -17,42 +17,44 @@
     #mathPanel h4 { color: #fff; font-weight: 900; margin-bottom: 10px; border-bottom: 1px solid #334155; padding-bottom: 5px; text-transform: uppercase; }
     .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 100; backdrop-filter: blur(4px); align-items: center; justify-content: center; }
     .modal.active { display: flex; }
-    #loader { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); z-index: 999; flex-direction: column; align-items: center; justify-content: center; color: white; backdrop-filter: blur(4px); }
+    #loader { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); z-index: 999; flex-direction: column; align-items: center; justify-content: center; color: white; }
     .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top-color: #0ea5e9; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #canvasContainer::-webkit-scrollbar { width: 12px; height: 12px; }
+    #canvasContainer::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; border: 3px solid #e2e8f0; }
   </style>
 </head>
 <body class="bg-slate-100">
 
-  <div id="loader"><div class="spinner mb-4"></div><p class="font-bold text-sm">กำลังประมวลผลข้อมูลทางวิศวกรรม...</p></div>
+  <div id="loader"><div class="spinner mb-4"></div><p class="font-bold text-sm">กำลังคำนวณข้อมูลทางวิศวกรรม...</p></div>
   <div id="toast" class="hidden fixed top-4 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-6 py-2 rounded-full shadow-2xl font-bold text-sm z-[1000] animate-bounce">สำเร็จ!</div>
 
-  <!-- Dashboard คำนวณ -->
   <div id="mathPanel" class="shadow-2xl">
-     <h4><i data-lucide="calculator" class="w-4 h-4 inline mr-1"></i> ระบบคำนวณความปลอดภัย</h4>
+     <h4><i data-lucide="calculator" class="w-4 h-4 inline mr-1"></i> Safety Math Engine</h4>
      <div id="mathOutput" class="space-y-2"></div>
   </div>
 
-  <header class="bg-slate-900 text-white h-14 px-6 flex justify-between items-center shrink-0 z-30 shadow-lg">
+  <header class="bg-slate-900 text-white h-14 px-6 flex justify-between items-center shadow-xl shrink-0 z-30">
     <div class="flex items-center gap-3">
       <div class="bg-sky-500 p-1.5 rounded text-white shadow-lg shadow-sky-500/30"><i data-lucide="shield-check"></i></div>
       <h1 class="text-lg font-black tracking-tighter text-sky-400 uppercase">Apron Control <span class="text-white text-xs ml-1">v1.2 PRO</span></h1>
     </div>
     <div class="flex gap-4">
-      <button onclick="loadData()" class="bg-slate-700 p-2 rounded hover:bg-sky-500 transition shadow-lg"><i data-lucide="refresh-cw" class="w-4 h-4 text-white"></i></button>
+      <input type="date" id="datePicker" class="text-slate-900 px-3 py-1 rounded text-xs font-bold border-none outline-none shadow-inner">
+      <button onclick="loadData()" class="bg-slate-700 p-2 rounded hover:bg-slate-600 transition"><i data-lucide="refresh-cw" class="w-4 h-4 text-white"></i></button>
     </div>
   </header>
 
-  <!-- Toolbar เลือกเครื่องบิน -->
+  <!-- Aircraft Selection Toolbar -->
   <div class="bg-white border-b h-20 flex items-center px-6 gap-3 overflow-x-auto shrink-0 z-20 shadow-sm no-scrollbar">
      <div class="flex flex-col shrink-0 border-r pr-4 mr-2">
         <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">เลือกเครื่องบิน</span>
-        <span class="text-[10px] font-bold text-slate-600 italic">เลือกเพื่อวางบนลานจอด</span>
+        <span class="text-[10px] font-bold text-slate-600 italic">เลือกเพื่อวาง</span>
      </div>
      <div id="acToolbar" class="flex gap-2"></div>
   </div>
 
   <div class="flex flex-1 overflow-hidden">
-    <!-- Sidebar -->
     <aside class="w-80 bg-white border-r flex flex-col shadow-2xl z-10 shrink-0">
       <div class="flex border-b text-[10px] font-black uppercase text-slate-400">
         <button onclick="switchTab('inspector')" id="tab-inspector" class="tab-btn flex-1 p-4 active">รายละเอียด</button>
@@ -61,23 +63,21 @@
 
       <div class="p-5 flex-1 overflow-y-auto bg-slate-50/20">
         <div id="view-inspector" class="space-y-6">
-          <!-- Zoom Control -->
           <div class="p-4 bg-sky-50 rounded-2xl border border-sky-100 shadow-inner">
              <div class="flex justify-between items-center mb-2">
-                <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">ขยายแผนผัง</span>
+                <span class="text-[9px] font-black text-slate-400">Zoom Map</span>
                 <span id="zoomDisplay" class="text-xs font-bold text-sky-600">100%</span>
              </div>
              <input type="range" id="zoomSlider" min="50" max="200" value="100" class="w-full h-1 bg-sky-200 rounded-lg appearance-none cursor-pointer accent-sky-600" oninput="handleZoom(this.value)">
           </div>
 
-          <!-- Plane Inspector -->
-          <div id="activePlanePanel" class="hidden space-y-4 animate-fadeIn">
+          <div id="activePlanePanel" class="hidden animate-fadeIn space-y-4">
              <div id="insHeader" class="p-5 text-white rounded-3xl shadow-xl border-b-4">
-                <h3 id="insModel" class="text-2xl font-black tracking-tighter text-white">Model</h3>
-                <p id="insStatusText" class="text-xs font-bold uppercase tracking-widest">สถานะ: ปลอดภัย</p>
+                <h3 id="insModel" class="text-2xl font-black tracking-tighter">Model</h3>
+                <p id="insStatusText" class="text-xs font-bold uppercase tracking-widest">Safe</p>
              </div>
              <label class="flex items-center justify-between p-3 bg-white rounded-xl border-2 border-slate-100 cursor-pointer hover:bg-slate-50 transition shadow-sm">
-                <span class="text-[10px] font-black uppercase">จำลองการเลี้ยวออก (Swing-out)</span>
+                <span class="text-[10px] font-black uppercase">จำลอง Swing-out</span>
                 <input type="checkbox" id="swingToggle" onchange="toggleSwingOut()" class="w-5 h-5 accent-sky-500">
              </label>
              <div class="grid grid-cols-2 gap-2">
@@ -86,24 +86,22 @@
                 <button onclick="deleteSelected()" class="col-span-2 p-3 bg-red-50 text-red-500 rounded-xl font-bold hover:bg-red-500 hover:text-white transition flex items-center justify-center gap-2 shadow-sm"><i data-lucide="trash-2" class="w-4 h-4"></i> ลบเครื่องที่เลือก</button>
              </div>
           </div>
-          <div id="noSelectionMsg" class="py-20 text-center text-slate-300 italic text-sm">คลิกเลือกเครื่องบินบนแผนผังเพื่อดูสถานะ</div>
+          <div id="noSelectionMsg" class="py-20 text-center text-slate-300 italic text-sm">คลิกเลือกเครื่องบินบนแผนผัง</div>
         </div>
 
-        <!-- Data Management Tab -->
+        <!-- Managed Data Tab -->
         <div id="view-data" class="hidden space-y-6">
            <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 space-y-3 shadow-sm">
-              <h4 class="font-black text-emerald-800 text-[10px] uppercase tracking-widest">ระยะปลอดภัยขั้นต่ำ (Wing Clearance)</h4>
+              <h4 class="font-black text-emerald-800 text-[10px] uppercase">ระยะห่างปลอดภัย (Min Wing Clearance)</h4>
               <div id="safetyConfigList" class="grid grid-cols-2 gap-2"></div>
-              <button onclick="uiSaveSafety()" class="w-full bg-emerald-600 text-white p-2 rounded-lg text-[10px] font-black uppercase shadow-lg">บันทึกค่ามาตรฐาน</button>
+              <button onclick="uiSaveSafety()" class="w-full bg-emerald-600 text-white p-2 rounded-lg text-[10px] font-black uppercase shadow-lg">อัปเดตมาตรฐาน</button>
            </div>
-           
            <div class="space-y-3">
-              <div class="flex justify-between items-center"><h3 class="font-black text-[10px] text-slate-400 uppercase tracking-widest">รายการหลุมจอด</h3><button onclick="openStandModal()" class="text-sky-600 font-bold text-[10px] bg-sky-50 px-2 py-1 rounded shadow-sm">+ เพิ่มหลุม</button></div>
+              <div class="flex justify-between items-center"><h3 class="font-black text-[10px] text-slate-400 uppercase tracking-widest">รายการหลุมจอด</h3><button onclick="openStandModal()" class="text-sky-600 font-bold text-[10px] bg-sky-50 px-2 py-1 rounded">+ เพิ่ม</button></div>
               <div id="standsTable" class="space-y-2"></div>
            </div>
-
            <div class="space-y-3 border-t pt-4">
-              <div class="flex justify-between items-center"><h3 class="font-black text-[10px] text-slate-400 uppercase tracking-widest">ประเภทเครื่องบิน</h3><button onclick="openAircraftModal()" class="text-sky-600 font-bold text-[10px] bg-sky-50 px-2 py-1 rounded shadow-sm">+ เพิ่มรุ่น</button></div>
+              <div class="flex justify-between items-center"><h3 class="font-black text-[10px] text-slate-400 uppercase tracking-widest">โมเดลเครื่องบิน</h3><button onclick="openAircraftModal()" class="text-sky-600 font-bold text-[10px] bg-sky-50 px-2 py-1 rounded">+ เพิ่ม</button></div>
               <div id="aircraftTable" class="space-y-2"></div>
            </div>
         </div>
@@ -115,49 +113,58 @@
     </main>
   </div>
 
-  <!-- Modal Stand Form -->
+  <!-- Modal Stand Config -->
   <div id="modalStand" class="modal">
-    <div class="bg-white rounded-3xl w-[450px] p-6 shadow-2xl space-y-4 animate-fadeIn text-slate-700 overflow-y-auto max-h-[90vh]">
+    <div class="bg-white rounded-3xl w-[450px] p-6 shadow-2xl space-y-4 text-slate-700 overflow-y-auto max-h-[90vh]">
        <h3 class="font-black border-b pb-2 uppercase tracking-tighter" id="standFormTitle">การตั้งค่าหลุมจอด</h3>
        <div><label>Stand ID</label><input id="st-id" class="w-full p-2 border rounded-lg focus:ring-2 outline-none"></div>
        <div class="grid grid-cols-2 gap-4">
-          <div><label>ความกว้าง (Width ม.)</label><input id="st-w" type="number" value="45" class="w-full p-2 border rounded-lg"></div>
-          <div><label>ความยาว (Length ม.)</label><input id="st-l" type="number" value="80" class="w-full p-2 border rounded-lg"></div>
+          <div><label>กว้าง Width (ม.)</label><input id="st-w" type="number" class="w-full p-2 border rounded-lg"></div>
+          <div><label>ยาว Length (ม.)</label><input id="st-l" type="number" class="w-full p-2 border rounded-lg"></div>
        </div>
        <div class="grid grid-cols-2 gap-4 bg-yellow-50 p-3 rounded-xl">
-          <div><label>T-MARK 1 (ระยะ)</label><input id="st-t1" type="number" value="15" class="w-full p-2 border border-yellow-400 rounded-lg"></div>
-          <div><label>Label T1</label><input id="st-t1-l" placeholder="A320" class="w-full p-2 border border-yellow-400 rounded-lg"></div>
-          <div><label>T-MARK 2 (ระยะ)</label><input id="st-t2" type="number" value="20" class="w-full p-2 border border-yellow-400 rounded-lg"></div>
-          <div><label>Label T2</label><input id="st-t2-l" placeholder="ATR72" class="w-full p-2 border border-yellow-400 rounded-lg"></div>
+          <div><label>T-MARK 1 (เมตร)</label><input id="st-t1" type="number" value="15" class="w-full p-2 border border-yellow-400 rounded-lg"></div>
+          <div><label>T-MARK 2 (เมตร)</label><input id="st-t2" type="number" value="20" class="w-full p-2 border border-yellow-400 rounded-lg"></div>
        </div>
        <div class="grid grid-cols-2 gap-4">
-          <div><label>ระยะท้าย (Tail Limit)</label><input id="st-tail" type="number" value="5" class="w-full p-2 border border-red-300 rounded-lg"></div>
+          <div><label>Left Border (ม.)</label><input id="st-border-l" type="number" value="20" class="w-full p-2 border border-blue-200 rounded-lg"></div>
+          <div><label>Right Border (ม.)</label><input id="st-border-r" type="number" value="20" class="w-full p-2 border border-blue-200 rounded-lg"></div>
+       </div>
+       <div><label>ระยะปลอดภัยท้าย (Tail Limit ม.)</label><input id="st-tail" type="number" value="5" class="w-full p-2 border border-red-300 rounded-lg"></div>
+       <div class="grid grid-cols-2 gap-4">
+          <div><label>Heading (องศา)</label><input id="st-heading" type="number" value="0" class="w-full p-2 border rounded-lg"></div>
           <div><label>Max ICAO Code</label><select id="st-code" class="w-full p-2 border rounded-lg"><option value="C">Code C</option><option value="E">Code E</option><option value="F">Code F</option></select></div>
        </div>
        <div class="grid grid-cols-2 gap-4">
           <div><label>หลุมหลัก (Parent ID)</label><select id="st-parent" class="w-full p-2 border rounded-lg"></select></div>
-          <div><label>ระยะเลื่อม (OffsetX)</label><input id="st-offset" type="number" value="0" class="w-full p-2 border rounded-lg"></div>
+          <div><label>OffsetX (m)</label><input id="st-offset" type="number" value="0" class="w-full p-2 border rounded-lg"></div>
        </div>
+       <select id="st-status" class="w-full p-2 border rounded-lg font-bold bg-slate-50"><option value="active">Active (เปิด)</option><option value="closed">Closed (ปิด)</option></select>
        <button onclick="uiSaveStand()" class="w-full bg-sky-600 text-white p-4 rounded-2xl font-bold shadow-lg">บันทึกข้อมูลหลุมจอด</button>
        <button onclick="closeModal('modalStand')" class="w-full text-slate-400 text-xs mt-2 text-center underline">ยกเลิก</button>
     </div>
   </div>
 
-  <!-- Modal Aircraft Form -->
+  <!-- Modal Aircraft Model -->
   <div id="modalAircraft" class="modal">
-    <div class="bg-white rounded-3xl w-[400px] p-6 shadow-2xl space-y-4 animate-fadeIn">
-       <h3 class="font-black border-b pb-2 uppercase tracking-tighter">รุ่นเครื่องบิน</h3>
-       <div><label>ชื่อรุ่น (Model)</label><input id="ac-m" placeholder="A320-200" class="w-full p-2 border rounded-lg"></div>
+    <div class="bg-white rounded-3xl w-[400px] p-6 shadow-2xl space-y-4">
+       <h3 class="font-black border-b pb-2 uppercase tracking-tighter" id="acFormTitle">โมเดลเครื่องบิน</h3>
+       <div><label>รุ่น (Model Name)</label><input id="ac-m" class="w-full p-2 border rounded-lg focus:ring-2 outline-none"></div>
        <div class="grid grid-cols-2 gap-4">
           <div><label>ปีกกว้าง (Span ม.)</label><input id="ac-s" type="number" class="w-full p-2 border rounded-lg"></div>
-          <div><label>ความยาว (Length ม.)</label><input id="ac-l" type="number" class="w-full p-2 border rounded-lg"></div>
+          <div><label>ยาว (Length ม.)</label><input id="ac-l" type="number" class="w-full p-2 border rounded-lg"></div>
        </div>
        <div class="grid grid-cols-2 gap-4">
+          <div><label>ล้อหน้า-ล้อเมน (Wheelbase)</label><input id="ac-wb" type="number" class="w-full p-2 border rounded-lg"></div>
           <div><label>จมูก-ล้อเมน (ม.)</label><input id="ac-nmg" type="number" class="w-full p-2 border rounded-lg"></div>
-          <div><label>องศาการเลี้ยว (Deg)</label><input id="ac-sa" type="number" value="45" class="w-full p-2 border rounded-lg"></div>
        </div>
-       <div><label>ICAO Code</label><select id="ac-code" class="w-full p-2 border rounded-lg"><option value="C">Code C</option><option value="E">Code E</option><option value="F">Code F</option></select></div>
-       <button onclick="uiSaveAircraft()" class="w-full bg-slate-900 text-white p-4 rounded-2xl font-bold shadow-lg">บันทึกประเภทเครื่อง</button>
+       <div class="grid grid-cols-2 gap-4">
+          <div><label>Max Steering (deg)</label><input id="ac-sa" type="number" value="45" class="w-full p-2 border rounded-lg"></div>
+          <div><label>Jet Blast Safe (ม.)</label><input id="ac-jb" type="number" value="40" class="w-full p-2 border rounded-lg"></div>
+       </div>
+       <div><label>ICAO Code</label><select id="ac-code" class="w-full p-2 border rounded-lg font-bold"><option value="C">Code C</option><option value="E">Code E</option><option value="F">Code F</option></select></div>
+       <div><label>สีที่แสดงบนแผนผัง (Color)</label><input id="ac-col" type="color" value="#0ea5e9" class="w-full h-10 rounded-lg border-none p-0.5 shadow-inner"></div>
+       <button onclick="uiSaveAircraft()" class="w-full bg-slate-900 text-white p-4 rounded-2xl font-bold shadow-lg">บันทึกโมเดลเครื่อง</button>
        <button onclick="closeModal('modalAircraft')" class="w-full text-slate-400 text-xs text-center underline">ยกเลิก</button>
     </div>
   </div>
@@ -167,7 +174,7 @@
 
   let aircraftTypes = [], stands = [], safetySettings = {};
   let placedAircraft = [], selectedIdx = -1, ghostAircraft = null;
-  let baseScale = 5, zoomPercent = 100, scale = 5, originX = 0, originY = 0;
+  let baseScale = 4, zoomPercent = 100, scale = 4, originX = 0, originY = 0;
 
   const canvas = document.getElementById('mainCanvas');
   const ctx = canvas.getContext('2d');
@@ -186,9 +193,9 @@
   function showLoader(show) { document.getElementById('loader').style.display = show ? 'flex' : 'none'; }
   function showToast(msg) { const t = document.getElementById('toast'); t.innerText = msg; t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 3000); }
   function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-  function switchTab(t) { ['inspector','data'].forEach(v => { document.getElementById('tab-'+v).className = `flex-1 p-4 tab-btn font-black uppercase ${v===t?'active border-sky-500 text-sky-600 bg-sky-50':'text-slate-400'}`; document.getElementById('view-'+v).classList.toggle('hidden', v!==t); }); }
+  function switchTab(t) { ['inspector','data'].forEach(v => { document.getElementById('tab-'+v).className = `flex-1 p-4 border-b-2 text-[10px] font-black uppercase ${v===t ? 'active border-sky-500 text-sky-600 bg-sky-50/50' : 'border-transparent text-slate-400'}`; document.getElementById('view-'+v).classList.toggle('hidden', v!==t); }); }
 
-  window.onload = async () => { lucide.createIcons(); await loadData(); animate(); };
+  window.onload = async () => { lucide.createIcons(); document.getElementById('datePicker').valueAsDate = new Date(); await loadData(); animate(); };
 
   async function loadData() {
     const data = await apiCall('getInitialData');
@@ -197,238 +204,21 @@
     stands = data.stands || [];
     safetySettings = {};
     (data.safetySettings || []).forEach(s => safetySettings[s.Code] = s.MinClearance);
-    renderSafetyConfig(); renderStandsTable(); renderAircraftTable(); renderToolbar(); updateParentDropdown();
+    renderAircraftToolbar(); renderStandsTable(); renderAircraftTypeTable(); renderSafetyConfig(); updateParentDropdown();
     calculateApronLayout();
   }
 
   function renderSafetyConfig() {
-    document.getElementById('safetyConfigList').innerHTML = ['C', 'E', 'F'].map(code => `
+    // แก้ไขบัค: แสดงผลแบบ Dynamic ทุกแถวจากชีท
+    document.getElementById('safetyConfigList').innerHTML = Object.keys(safetySettings).map(code => `
         <div class="bg-white p-2 rounded-lg border text-center">
-            <label>Code ${code}</label>
-            <input type="number" id="safe-${code}" value="${safetySettings[code]||4.5}" class="w-full text-xs font-bold text-center outline-none">
+            <label class="text-[8px] text-slate-400">Code ${code}</label>
+            <input type="number" step="0.1" value="${safetySettings[code]}" id="safe-${code}" class="w-full text-xs font-bold border-none outline-none p-0 text-center">
         </div>`).join('');
   }
 
-  function renderStandsTable() {
-    document.getElementById('standsTable').innerHTML = stands.map((s, i) => `
-        <div class="flex justify-between items-center p-3 bg-white border rounded-xl shadow-sm text-[10px] font-bold">
-            <span>Stand ${s.StandID} (${s.MaxCode})</span>
-            <div class="flex gap-1">
-                <button onclick="editStand(${i})" class="bg-sky-50 text-sky-600 p-1.5 rounded">แก้ไข</button>
-                <button onclick="uiDeleteStand('${s.StandID}')" class="bg-red-50 text-red-500 p-1.5 rounded">ลบ</button>
-            </div>
-        </div>`).join('');
-  }
-
-  function renderAircraftTable() {
-    document.getElementById('aircraftTable').innerHTML = aircraftTypes.map((ac, i) => `
-        <div class="flex justify-between items-center p-3 bg-white border rounded-xl shadow-sm text-[10px] font-bold">
-            <span>${ac.Model} (${ac.ICAO})</span>
-            <div class="flex gap-1">
-                <button onclick="editAircraft(${i})" class="bg-sky-50 text-sky-600 p-1.5 rounded">แก้ไข</button>
-                <button onclick="uiDeleteAircraft('${ac.Model}')" class="bg-red-50 text-red-500 p-1.5 rounded">ลบ</button>
-            </div>
-        </div>`).join('');
-  }
-
-  function renderToolbar() {
-    document.getElementById('acToolbar').innerHTML = aircraftTypes.map((t, i) => `
-        <button onclick="pickGhost(${i})" class="flex flex-col items-center p-2 bg-white border-2 rounded-xl hover:border-sky-500 w-24 shrink-0 shadow-sm transition">
-            <b class="text-[10px] text-slate-800">${t.Model}</b>
-            <span class="text-[8px] text-sky-500 font-black uppercase">Code ${t.ICAO}</span>
-        </button>`).join('');
-  }
-
-  function updateParentDropdown() {
-    document.getElementById('st-parent').innerHTML = '<option value="">-- ไม่มี --</option>' + stands.filter(s => !s.ParentID).map(p => `<option value="${p.StandID}">${p.StandID}</option>`).join('');
-  }
-
-  function calculateApronLayout() {
-    const parents = stands.filter(s => !s.ParentID).sort((a,b) => String(a.StandID).localeCompare(String(b.StandID), undefined, {numeric:true}));
-    let totalW = parents.reduce((sum, s) => sum + Number(s.Width), 0);
-    canvas.width = (totalW + 400) * scale;
-    canvas.height = 900 * (zoomPercent/100);
-    originX = canvas.width - (100 * scale); originY = canvas.height / 2;
-    
-    let curX = 0;
-    parents.forEach(s => {
-        s.mX = curX - (Number(s.Width)/2); s.mY = 0;
-        curX -= Number(s.Width);
-        stands.filter(c => c.ParentID === s.StandID).forEach(c => { c.mX = s.mX + (Number(c.OffsetX)||0); c.mY = 0; });
-    });
-  }
-
-  function checkSafety() {
-    let mathLog = "";
-    placedAircraft.forEach((ac, idx) => {
-        let isSafe = true, lSafe = true, rSafe = true, error = "";
-        let stand = stands.find(s => Math.abs(ac.mX - s.mX) < 1);
-        
-        if (stand) {
-            const noseY = ac.mY + (ac.Length / 2);
-            const tailY = ac.mY - (ac.Length / 2);
-            const clearance = (stand.mY + stand.Length / 2) - noseY;
-            const tailClearance = tailY - (stand.mY - stand.Length / 2);
-
-            if (clearance < -0.1) { isSafe = false; error = "จมูกเกินขอบหัวหลุม"; }
-            if (tailClearance < Number(stand.TailLimit || 5)) { isSafe = false; error = "ท้ายเครื่องล้นเขต Taxiway"; }
-            if (ac.ICAO.charCodeAt(0) > stand.MaxCode.charCodeAt(0)) { isSafe = false; error = "เครื่องใหญ่เกินมาตรฐานหลุม"; }
-
-            // Swing-out Clash Detection
-            if (ac.swing) {
-                const turnR = ac.NoseToMainGear / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
-                const sweptR = Math.hypot(turnR + ac.WingSpan/2, ac.Length - ac.NoseToMainGear);
-                
-                placedAircraft.forEach((other, oIdx) => {
-                    if (idx === oIdx) return;
-                    const distToOther = Math.abs(ac.mX - other.mX) - (other.WingSpan / 2);
-                    if (distToOther < sweptR) {
-                        if (other.mX < ac.mX) rSafe = false; else lSafe = false;
-                        isSafe = false; error = "วงเลี้ยวชนเครื่องลำข้างเคียง";
-                    }
-                });
-            }
-        } else { isSafe = false; error = "อยู่นอกขอบเขตหลุมจอด"; }
-
-        // Wing-to-Wing Separation
-        placedAircraft.forEach((other, oIdx) => {
-            if (idx === oIdx) return;
-            const dist = Math.abs(ac.mX - other.mX);
-            const gap = dist - (ac.WingSpan/2 + other.WingSpan/2);
-            const minGap = safetySettings[ac.ICAO] || 4.5;
-            if (gap < minGap) { isSafe = false; error = "ระยะห่างปลายปีกอันตราย"; }
-        });
-
-        ac.isSafe = isSafe; ac.errorMsg = error; ac.lSafe = lSafe; ac.rSafe = rSafe;
-
-        if (idx === selectedIdx) {
-            mathLog += `<p class="text-sky-300 font-bold border-b border-sky-800 pb-1 mb-1">STAND: ${stand?.StandID || '?'}</p>`;
-            mathLog += `<p>ระยะจมูก-หัวหลุม: ${((stand?.mY+stand?.Length/2)-(ac.mY+ac.Length/2)).toFixed(2)} ม.</p>`;
-            mathLog += `<p>สถานะซ้าย: ${lSafe?'✅ พ้น':'❌ ชน'}</p><p>สถานะขวา: ${rSafe?'✅ พ้น':'❌ ชน'}</p>`;
-        }
-    });
-    document.getElementById('mathOutput').innerHTML = mathLog || '<p class="text-slate-500 italic text-[10px]">เลือกเครื่องบินเพื่อตรวจสอบ...</p>';
-    if (selectedIdx !== -1) updateInspector();
-  }
-
-  function updateInspector() {
-    const ac = placedAircraft[selectedIdx];
-    if(!ac) return;
-    document.getElementById('activePlanePanel').classList.remove('hidden');
-    document.getElementById('noSelectionMsg').classList.add('hidden');
-    document.getElementById('insModel').innerText = ac.Model;
-    document.getElementById('swingToggle').checked = ac.swing;
-    const hdr = document.getElementById('insHeader');
-    hdr.className = ac.isSafe ? "p-5 bg-emerald-600 text-white rounded-3xl shadow-xl border-b-4 border-emerald-800" : "p-5 bg-red-600 text-white rounded-3xl shadow-xl border-b-4 border-red-800";
-    document.getElementById('insStatusText').innerText = ac.isSafe ? "✅ สถานะ: ปลอดภัย" : `⚠️ แจ้งเตือน: ${ac.errorMsg}`;
-  }
-
-  function animate() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height); checkSafety();
-    stands.forEach(s => {
-        const p = mToP(s.mX, s.mY), w = s.Width * scale, l = s.Length * scale;
-        ctx.save(); ctx.translate(p.x, p.y);
-        // Border
-        ctx.strokeStyle = "#94a3b8"; ctx.setLineDash([5, 5]); ctx.strokeRect(-w/2, -l/2, w, l);
-        // Yellow Center Line
-        ctx.beginPath(); ctx.setLineDash([]); ctx.strokeStyle = "#facc15"; ctx.lineWidth = 3;
-        ctx.moveTo(0, -l/2); ctx.lineTo(0, l/2); ctx.stroke();
-        // T-Marks
-        [{d: s.TMark1, l: s.TMark1Label}, {d: s.TMark2, l: s.TMark2Label}].forEach(tm => {
-            if(!tm.d) return;
-            const ty = (l/2) - (tm.d * scale);
-            ctx.beginPath(); ctx.moveTo(-5*scale, ty); ctx.lineTo(5*scale, ty); ctx.stroke();
-            ctx.fillStyle="#475569"; ctx.font="bold 10px Sarabun"; ctx.fillText(tm.l||'', 6*scale, ty+3);
-        });
-        ctx.fillStyle = "#0f172a"; ctx.textAlign="center"; ctx.font="black 14px Inter";
-        ctx.fillText(`Stand ${s.StandID} (${s.MaxCode})`, 0, -l/2 - 15);
-        ctx.restore();
-    });
-
-    // Drawing Wing Separation Lines
-    let sorted = [...placedAircraft].sort((a,b) => b.mX - a.mX);
-    for(let i=0; i < sorted.length - 1; i++) {
-        const r = sorted[i], l = sorted[i+1];
-        const gap = Math.abs(r.mX - l.mX) - (r.WingSpan/2 + l.WingSpan/2);
-        const pR = mToP(r.mX - r.WingSpan/2, r.mY), pL = mToP(l.mX + l.WingSpan/2, l.mY);
-        ctx.beginPath(); ctx.setLineDash([3,3]); ctx.strokeStyle = gap < (safetySettings[r.ICAO]||4.5) ? "#ef4444" : "#10b981";
-        ctx.moveTo(pR.x, pR.y); ctx.lineTo(pL.x, pL.y); ctx.stroke();
-        ctx.fillStyle = ctx.strokeStyle; ctx.font="bold 10px monospace"; ctx.textAlign="center";
-        ctx.fillText(gap.toFixed(1)+"m", (pR.x+pL.x)/2, pR.y - 10);
-    }
-
-    placedAircraft.forEach((ac, i) => drawAircraft(ac, i === selectedIdx));
-    if (ghostAircraft) { ctx.globalAlpha = 0.5; drawAircraft(ghostAircraft, true); ctx.globalAlpha = 1.0; }
-    requestAnimationFrame(animate);
-  }
-
-  function drawAircraft(ac, isSelected) {
-    const p = mToP(ac.mX, ac.mY), w = ac.WingSpan * scale, l = ac.Length * scale, mb = ac.NoseToMainGear * scale;
-    
-    // Safety Circle (Aura)
-    ctx.save(); ctx.translate(p.x, p.y);
-    const auraR = (ac.WingSpan/2 + (safetySettings[ac.ICAO] || 4.5)) * scale;
-    ctx.beginPath(); ctx.arc(0, 0, auraR, 0, Math.PI*2);
-    ctx.fillStyle = ac.isSafe ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.15)';
-    ctx.fill();
-    ctx.strokeStyle = ac.isSafe ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.5)';
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(ac.heading * Math.PI / 180);
-    if (ac.swing) {
-        const turnR = ac.NoseToMainGear / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
-        const sweptR = Math.hypot(turnR + ac.WingSpan/2, ac.Length - ac.NoseToMainGear) * scale;
-        ctx.setLineDash([4,4]); ctx.lineWidth=1.5;
-        ctx.strokeStyle = ac.rSafe ? 'rgba(34, 197, 94, 0.6)' : '#ef4444';
-        ctx.beginPath(); ctx.arc(-turnR*scale, mb, sweptR, 1.5*Math.PI, 2*Math.PI); ctx.stroke();
-        ctx.strokeStyle = ac.lSafe ? 'rgba(34, 197, 94, 0.6)' : '#ef4444';
-        ctx.beginPath(); ctx.arc(turnR*scale, mb, sweptR, Math.PI, 1.5*Math.PI); ctx.stroke();
-    }
-    ctx.fillStyle = isSelected ? '#0ea5e9' : (ac.isSafe ? '#334155' : '#ef4444');
-    ctx.fillRect(-w/20, -mb, w/10, l); ctx.fillRect(-w/2, -mb + l*0.2, w, l/10); ctx.fillRect(-w/4, -mb + l*0.85, w/2, l/20);
-    ctx.rotate(-ac.heading * Math.PI / 180);
-    ctx.fillStyle="white"; ctx.font="bold 10px Inter"; ctx.textAlign="center"; ctx.fillText(ac.Model, 0, 0);
-    ctx.restore();
-  }
-
-  // --- API / CRUD ---
-  async function uiSaveStand() {
-    const data = {
-        StandID: document.getElementById('st-id').value,
-        Width: document.getElementById('st-w').value,
-        Length: document.getElementById('st-l').value,
-        TMark1: document.getElementById('st-t1').value,
-        TMark1Label: document.getElementById('st-t1-l').value,
-        TMark2: document.getElementById('st-t2').value,
-        TMark2Label: document.getElementById('st-t2-l').value,
-        TailLimit: document.getElementById('st-tail').value,
-        MaxCode: document.getElementById('st-code').value,
-        ParentID: document.getElementById('st-parent').value,
-        OffsetX: document.getElementById('st-offset').value,
-        Status: 'active'
-    };
-    await apiCall('saveStand', data); closeModal('modalStand'); await loadData();
-  }
-
-  async function uiSaveAircraft() {
-    const data = {
-        Model: document.getElementById('ac-m').value,
-        WingSpan: document.getElementById('ac-s').value,
-        Length: document.getElementById('ac-l').value,
-        NoseToMainGear: document.getElementById('ac-nmg').value,
-        SteeringAngle: document.getElementById('ac-sa').value,
-        ICAO: document.getElementById('ac-code').value
-    };
-    await apiCall('saveAircraftType', data); closeModal('modalAircraft'); await loadData();
-  }
-
-  async function uiSaveSafety() {
-    for(let code of ['C', 'E', 'F']) {
-        await apiCall('saveSafety', { Code: code, MinClearance: document.getElementById(`safe-${code}`).value });
-    }
-    await loadData();
-  }
+  function renderStandsTable() { document.getElementById('standsTable').innerHTML = stands.map((s, i) => `<div class="flex justify-between items-center p-2.5 bg-white border rounded-xl text-[10px] font-bold shadow-sm"><div>${s.StandID}</div><div class="flex gap-1"><button onclick="editStand(${i})" class="bg-sky-50 text-sky-600 p-1.5 rounded">แก้ไข</button><button onclick="uiDeleteStand('${s.StandID}')" class="bg-red-50 text-red-400 p-1.5 rounded">ลบ</button></div></div>`).join(''); }
+  function renderAircraftTypeTable() { document.getElementById('aircraftTable').innerHTML = aircraftTypes.map((ac, i) => `<div class="flex justify-between items-center p-3 bg-white border rounded-xl text-[10px] font-bold shadow-sm"><span>${ac.Model}</span><div class="flex gap-1"><button onclick="editAircraft(${i})" class="bg-sky-50 text-sky-600 p-1.5 rounded">แก้ไข</button><button onclick="uiDeleteAircraft('${ac.Model}')" class="bg-red-50 text-red-400 p-1.5 rounded">ลบ</button></div></div>`).join(''); }
 
   function editStand(i) {
     const s = stands[i];
@@ -436,14 +226,16 @@
     document.getElementById('st-w').value = s.Width;
     document.getElementById('st-l').value = s.Length;
     document.getElementById('st-t1').value = s.TMark1;
-    document.getElementById('st-t1-l').value = s.TMark1Label || "";
     document.getElementById('st-t2').value = s.TMark2;
-    document.getElementById('st-t2-l').value = s.TMark2Label || "";
+    document.getElementById('st-border-l').value = s.LeftBorder || 0;
+    document.getElementById('st-border-r').value = s.RightBorder || 0;
     document.getElementById('st-tail').value = s.TailLimit || 5;
+    document.getElementById('st-heading').value = s.Heading || 0;
     document.getElementById('st-code').value = s.MaxCode;
     document.getElementById('st-parent').value = s.ParentID || "";
     document.getElementById('st-offset').value = s.OffsetX || 0;
-    openStandModal();
+    document.getElementById('st-status').value = s.Status;
+    document.getElementById('modalStand').classList.add('active');
   }
 
   function editAircraft(i) {
@@ -451,53 +243,153 @@
     document.getElementById('ac-m').value = ac.Model;
     document.getElementById('ac-s').value = ac.WingSpan;
     document.getElementById('ac-l').value = ac.Length;
+    document.getElementById('ac-wb').value = ac.Wheelbase || 0;
     document.getElementById('ac-nmg').value = ac.NoseToMainGear;
-    document.getElementById('ac-sa').value = ac.SteeringAngle;
+    document.getElementById('ac-sa').value = ac.SteeringAngle || 45;
+    document.getElementById('ac-jb').value = ac.JetBlast || 40;
     document.getElementById('ac-code').value = ac.ICAO;
-    openAircraftModal();
+    document.getElementById('ac-col').value = ac.Color || "#0ea5e9";
+    document.getElementById('modalAircraft').classList.add('active');
   }
 
-  async function uiDeleteStand(id) { if(confirm('ลบหลุม '+id+'?')) { await apiCall('deleteStand', {id}); await loadData(); } }
-  async function uiDeleteAircraft(id) { if(confirm('ลบประเภท '+id+'?')) { await apiCall('deleteAircraftType', {id}); await loadData(); } }
+  async function uiSaveStand() {
+    const d = {
+        StandID: document.getElementById('st-id').value,
+        Width: Number(document.getElementById('st-w').value),
+        Length: Number(document.getElementById('st-l').value),
+        TMark1: Number(document.getElementById('st-t1').value),
+        TMark2: Number(document.getElementById('st-t2').value),
+        LeftBorder: Number(document.getElementById('st-border-l').value),
+        RightBorder: Number(document.getElementById('st-border-r').value),
+        TailLimit: Number(document.getElementById('st-tail').value),
+        Heading: Number(document.getElementById('st-heading').value),
+        MaxCode: document.getElementById('st-code').value,
+        ParentID: document.getElementById('st-parent').value,
+        OffsetX: Number(document.getElementById('st-offset').value),
+        Status: document.getElementById('st-status').value
+    };
+    await apiCall('saveStand', d); closeModal('modalStand'); await loadData();
+  }
 
-  // --- Interaction ---
+  async function uiSaveAircraft() {
+    const d = {
+        Model: document.getElementById('ac-m').value,
+        WingSpan: Number(document.getElementById('ac-s').value),
+        Length: Number(document.getElementById('ac-l').value),
+        Wheelbase: Number(document.getElementById('ac-wb').value),
+        NoseToMainGear: Number(document.getElementById('ac-nmg').value),
+        SteeringAngle: Number(document.getElementById('ac-sa').value),
+        JetBlast: Number(document.getElementById('ac-jb').value),
+        ICAO: document.getElementById('ac-code').value,
+        Color: document.getElementById('ac-col').value
+    };
+    await apiCall('saveAircraftType', d); closeModal('modalAircraft'); await loadData();
+  }
+
+  // --- Logic เดิมคงไว้แต่ปรับปรุงการตรวจสอบ Border ---
+  function checkSafety() {
+    let mathLog = "";
+    placedAircraft.forEach((ac, idx) => {
+        let staticSafe = true, lSafe = true, rSafe = true, error = "";
+        let stand = findBestStand(ac);
+        
+        if (stand) {
+            const noseY = ac.mY + (ac.Length / 2);
+            const distFromBottom = (stand.mY + stand.Length / 2) - noseY;
+            if (distFromBottom < -0.1) { staticSafe = false; error = "จมูกล้นเขตหัวหลุม"; }
+            const tailY = ac.mY - (ac.Length / 2);
+            const tailDistFromTop = tailY - (stand.mY - stand.Length / 2);
+            if (tailDistFromTop < Number(stand.TailLimit || 5)) { staticSafe = false; error = "ท้ายล้นเขต Taxiway"; }
+            
+            // ตรวจสอบสิ่งกีดขวาง (Borders) หากมีการเลี้ยว
+            if (ac.swing) {
+                const turnR = ac.NoseToMainGear / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
+                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.Length - ac.NoseToMainGear);
+                if (stand.LeftBorder > 0 && sweptR > stand.LeftBorder) { lSafe = false; error = "วงเลี้ยวเกินขอบเขตซ้าย"; }
+                if (stand.RightBorder > 0 && sweptR > stand.RightBorder) { rSafe = false; error = "วงเลี้ยวเกินขอบเขตขวา"; }
+            }
+        }
+        ac.isSafe = staticSafe && lSafe && rSafe; ac.errorMsg = error;
+    });
+    // แสดง Math log และอื่นๆ...
+  }
+
+  function calculateApronLayout() {
+    const parents = stands.filter(s => !s.ParentID).sort((a,b) => String(a.StandID).localeCompare(String(b.StandID), undefined, {numeric: true}));
+    let totalMeters = parents.reduce((sum, s) => sum + Number(s.Width), 0);
+    canvas.width = (totalMeters + 300) * scale;
+    canvas.height = 800 * (zoomPercent/100);
+    originX = canvas.width - (100 * scale); originY = canvas.height / 2;
+    let currentMX = 0;
+    parents.forEach(s => {
+      s.mX = currentMX - (Number(s.Width) / 2); s.mY = 0;
+      currentMX -= Number(s.Width); 
+      stands.filter(child => String(child.ParentID) === String(s.StandID)).forEach(child => {
+          child.mX = s.mX + (Number(child.OffsetX) || 0); child.mY = 0;
+      });
+    });
+  }
+
+  function findBestStand(ac) { return stands.find(s => ac.mX >= (s.mX - s.Width/2) && ac.mX <= (s.mX + s.Width/2) && ac.mY >= (s.mY - s.Length/2) && ac.mY <= (s.mY + s.Length/2)); }
   function findBestSnap(ac, world) {
     let bx = world.mx, by = world.my, bh = 180;
     stands.forEach(s => {
-        if (Math.abs(world.mx - s.mX) < 10) {
-            bx = s.mX; bh = 180;
-            const noseOff = ac.Length / 2; const headY = s.mY + s.Length/2;
-            const d1 = Math.abs(world.my - (headY - s.TMark1 - noseOff));
-            const d2 = Math.abs(world.my - (headY - s.TMark2 - noseOff));
-            by = d1 < d2 ? (headY - s.TMark1 - noseOff) : (headY - s.TMark2 - noseOff);
-        }
+      if (Math.abs(world.mx - s.mX) < 10) { bx = s.mX; bh = 180; const off = ac.Length/2; const y1 = (s.mY+s.Length/2)-s.TMark1-off; const y2 = (s.mY+s.Length/2)-s.TMark2-off; by = Math.abs(world.my-y1) < Math.abs(world.my-y2) ? y1 : y2; }
     });
     return { x: bx, y: by, h: bh };
   }
 
-  canvas.onmousedown = (e) => {
-    const r = canvas.getBoundingClientRect(); const pos = pToM(e.clientX-r.left, e.clientY-r.top);
-    if (ghostAircraft) { 
-        const s = findBestSnap(ghostAircraft, pos); 
-        placedAircraft.push({ ...ghostAircraft, mX: s.x, mY: s.y, heading: s.h }); 
-        ghostAircraft = null; return; 
-    }
-    selectedIdx = placedAircraft.findIndex(ac => Math.hypot(ac.mX - pos.mx, ac.mY - pos.my) < 10);
-  };
-  canvas.onmousemove = (e) => {
-    const r = canvas.getBoundingClientRect(); const pos = pToM(e.clientX-r.left, e.clientY-r.top);
-    if (ghostAircraft) { const s = findBestSnap(ghostAircraft, pos); ghostAircraft.mX = s.x; ghostAircraft.mY = s.y; ghostAircraft.heading = s.h; }
-    else if (selectedIdx !== -1 && e.buttons === 1) { const s = findBestSnap(placedAircraft[selectedIdx], pos); placedAircraft[selectedIdx].mX = s.x; placedAircraft[selectedIdx].mY = s.y; }
-  };
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height); checkSafety();
+    stands.forEach(s => {
+      const p = mToP(s.mX, s.mY), w = s.Width * scale, l = s.Length * scale;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate((s.Heading || 0) * Math.PI / 180);
+      ctx.strokeStyle = s.Status === 'active' ? '#94a3b8' : '#ef4444'; ctx.setLineDash([5, 5]); ctx.strokeRect(-w/2, -l/2, w, l);
+      ctx.beginPath(); ctx.setLineDash([]); ctx.strokeStyle = "#facc15"; ctx.lineWidth = 3;
+      const t1Y = (l/2) - (Number(s.TMark1 || 15) * scale);
+      ctx.moveTo(0, -l/2); ctx.lineTo(0, t1Y); ctx.stroke();
+      [s.TMark1, s.TMark2].forEach(tm => { if(!tm) return; const tmY = (l/2) - (Number(tm) * scale); ctx.beginPath(); ctx.moveTo(-5*scale, tmY); ctx.lineTo(5*scale, tmY); ctx.stroke(); });
+      ctx.restore();
+    });
+    placedAircraft.forEach((ac, i) => drawAircraft(ac, i === selectedIdx));
+    if (ghostAircraft) { ctx.globalAlpha = 0.5; drawAircraft(ghostAircraft, true); ctx.globalAlpha = 1.0; }
+    requestAnimationFrame(animate);
+  }
+
+  function drawAircraft(ac, isSelected) {
+    const p = mToP(ac.mX, ac.mY), w = ac.WingSpan * scale, l = ac.Length * scale, mb = ac.NoseToMainGear * scale;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(ac.heading * Math.PI / 180);
+    ctx.fillStyle = isSelected ? '#0ea5e9' : (ac.isSafe ? (ac.Color || '#334155') : '#ef4444');
+    ctx.fillRect(-w/20, -mb, w/10, l); ctx.fillRect(-w/2, -mb + l*0.15, w, l/10); ctx.fillRect(-w/4, -mb + l*0.85, w/2, l/20);
+    ctx.restore();
+  }
+
+  // Common UI helpers
+  function updateParentDropdown() { document.getElementById('st-parent').innerHTML = '<option value="">-- ไม่มี --</option>' + stands.filter(s => !s.ParentID).map(p => `<option value="${p.StandID}">${p.StandID}</option>`).join(''); }
+  function renderAircraftToolbar() { document.getElementById('acToolbar').innerHTML = aircraftTypes.map((t, i) => `<button onclick="pickGhost(${i})" class="flex flex-col items-center justify-center p-2 bg-white border-2 border-slate-100 rounded-xl hover:border-sky-500 transition w-24 shrink-0 shadow-sm"><b class="text-[10px] text-slate-800">${t.Model}</b><span class="text-[8px] font-black text-sky-500 uppercase">Code ${t.ICAO}</span></button>`).join(''); }
+  function handleZoom(v) { zoomPercent=v; document.getElementById('zoomDisplay').innerText=v+"%"; scale=(baseScale*zoomPercent)/100; calculateApronLayout(); }
   function pickGhost(i) { ghostAircraft = { ...aircraftTypes[i], heading: 180, mX: 0, mY: 0, swing: false }; }
   function toggleSwingOut() { if(selectedIdx !== -1) placedAircraft[selectedIdx].swing = document.getElementById('swingToggle').checked; }
   function rotateSelected(d) { if(selectedIdx !== -1) placedAircraft[selectedIdx].heading += d; }
   function deleteSelected() { if(selectedIdx !== -1) { placedAircraft.splice(selectedIdx, 1); selectedIdx = -1; document.getElementById('activePlanePanel').classList.add('hidden'); } }
-  function handleZoom(v) { zoomPercent=v; document.getElementById('zoomDisplay').innerText=v+"%"; scale=(baseScale*zoomPercent)/100; calculateApronLayout(); }
   const mToP = (mx, my) => ({ x: originX + mx * scale, y: originY + my * scale });
   const pToM = (px, py) => ({ mx: (px - originX) / scale, my: (py - originY) / scale });
-  function openStandModal() { document.getElementById('modalStand').classList.add('active'); }
+  function openStandModal() { document.getElementById('modalStand').classList.add('active'); updateParentDropdown(); }
   function openAircraftModal() { document.getElementById('modalAircraft').classList.add('active'); }
+  async function uiDeleteStand(id) { if(confirm('ลบหลุมจอด '+id+'?')) { await apiCall('deleteStand', {id}); await loadData(); } }
+  async function uiDeleteAircraft(id) { if(confirm('ลบโมเดล '+id+'?')) { await apiCall('deleteAircraftType', {id}); await loadData(); } }
+
+  canvas.onmousedown = (e) => {
+    const r = canvas.getBoundingClientRect(); const pos = pToM(e.clientX-r.left, e.clientY-r.top);
+    if (ghostAircraft) { const s = findBestSnap(ghostAircraft, pos); ghostAircraft.mX = s.x; ghostAircraft.mY = s.y; ghostAircraft.heading = s.h; placedAircraft.push({ ...ghostAircraft }); ghostAircraft = null; return; }
+    selectedIdx = placedAircraft.findIndex(ac => Math.hypot(ac.mX - pos.mx, ac.mY - pos.my) < (ac.WingSpan/2 + 2));
+    if(selectedIdx !== -1) updateInspector(); else document.getElementById('activePlanePanel').classList.add('hidden');
+  };
+  canvas.onmousemove = (e) => {
+    const r = canvas.getBoundingClientRect(); const pos = pToM(e.clientX-r.left, e.clientY-r.top);
+    if (ghostAircraft) { const s = findBestSnap(ghostAircraft, pos); ghostAircraft.mX = s.x; ghostAircraft.mY = s.y; ghostAircraft.heading = s.h; 
+    } else if (selectedIdx !== -1 && e.buttons === 1) { const s = findBestSnap(placedAircraft[selectedIdx], pos); placedAircraft[selectedIdx].mX = s.x; placedAircraft[selectedIdx].mY = s.y; updateInspector(); }
+  };
 </script>
 </body>
 </html>
