@@ -274,7 +274,7 @@
     return { x: bx, y: by, h: bh };
   }
 
-function checkSafety() {
+/*function checkSafety() {
     let mathLog = "";
     
     placedAircraft.forEach((ac, idx) => {
@@ -402,7 +402,152 @@ function checkSafety() {
 
     document.getElementById('mathOutput').innerHTML = mathLog || '<p class="text-slate-500 italic text-[10px]">เลือกเครื่องบินเพื่อตรวจสอบพารามิเตอร์...</p>';
     if (selectedIdx !== -1) updateInspector();
+}*/
+
+  ////////////////////////
+// ฟังก์ชันช่วยหาพิกัด 4 มุมของเครื่องบินตามองศาการหมุน
+function getACBox(ac) {
+    const rad = ac.heading * Math.PI / 180;
+    const w2 = ac.WingSpan / 2;
+    const l2 = ac.Length / 2;
+    // พิกัดสัมพัทธ์ 4 มุม (Nose-Left, Nose-Right, Tail-Left, Tail-Right)
+    const corners = [
+        { x: -w2, y: l2 }, { x: w2, y: l2 },
+        { x: -w2, y: -l2 }, { x: w2, y: -l2 }
+    ];
+    // หมุนพิกัดตาม Heading และบวกตำแหน่ง mX, mY
+    return corners.map(p => ({
+        x: ac.mX + (p.x * Math.cos(rad) - p.y * Math.sin(rad)),
+        y: ac.mY + (p.x * Math.sin(rad) + p.y * Math.cos(rad))
+    }));
 }
+
+// ฟังก์ชันหา distance ที่สั้นที่สุดระหว่างจุดหนึ่งไปยังเส้นตรง (Segment)
+function distToSegment(p, v, w) {
+    const l2 = Math.pow(v.x - w.x, 2) + Math.pow(v.y - w.y, 2);
+    if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
+    let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
+}
+
+// ฟังก์ชันหาระยะห่างที่สั้นที่สุดระหว่างกล่องสี่เหลี่ยม 2 กล่อง
+function getGapBetweenBoxes(box1, box2) {
+    let minD = Infinity;
+    for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 4; j++) {
+            // เช็คระยะจากจุดมุมของกล่อง 1 ไปยังขอบของกล่อง 2
+            minD = Math.min(minD, distToSegment(box1[i], box2[j], box2[(j + 1) % 4]));
+            // เช็คระยะจากจุดมุมของกล่อง 2 ไปยังขอบของกล่อง 1
+            minD = Math.min(minD, distToSegment(box2[i], box1[j], box1[(j + 1) % 4]));
+        }
+    }
+    return minD;
+}
+
+function checkSafety() {
+    let mathLog = "";
+    placedAircraft.forEach((ac, idx) => {
+        let staticSafe = true, leftSafe = true, rightSafe = true, error = "";
+        const minReq = Number(safetySettings[ac.ICAO]) || 4.5;
+        const jetLimit = Number(ac.JetBlast) || 0;
+        const acBox = getACBox(ac); // คำนวณขอบเขตเครื่องลำปัจจุบัน
+        
+        let stand = findBestStand(ac);
+        if (stand) {
+            // เช็ค Nose/Tail Limit อิงตามตำแหน่งหัว/ท้ายจริงหลังหมุน
+            const rad = ac.heading * Math.PI / 180;
+            const noseX = ac.mX - (ac.Length / 2) * Math.sin(rad);
+            const noseY = ac.mY + (ac.Length / 2) * Math.cos(rad);
+            const tailY = ac.mY - (ac.Length / 2) * Math.cos(rad);
+
+            const distFromBottom = (stand.mY + stand.Length / 2) - noseY;
+            if (distFromBottom < -0.1) { staticSafe = false; error = "จมูกล้นเขตหัวหลุม"; }
+            const tailDistFromTop = tailY - (stand.mY - stand.Length / 2);
+            if (tailDistFromTop < Number(stand.TailLimit || 5)) { staticSafe = false; error = "ท้ายล้นเขต Taxiway"; }
+            if (ac.ICAO.charCodeAt(0) > stand.MaxCode.charCodeAt(0)) { staticSafe = false; error = "เครื่องใหญ่เกินขนาดหลุม"; }
+            
+            if (ac.swing) {
+                const wheelbase = Number(ac.Wheelbase) || (Number(ac.NoseToMainGear) * 0.75);
+                const turnR = wheelbase / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
+                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25) + minReq;
+                if (stand.LeftBorder && sweptR > Number(stand.LeftBorder)) leftSafe = false;
+                if (stand.RightBorder && sweptR > Number(stand.RightBorder)) rightSafe = false;
+            }
+        } else { staticSafe = false; error = "อยู่นอกเขตหลุมจอด"; }
+
+        let nearL = null, nearR = null, minDistL = Infinity, minDistR = Infinity, isJetViolation = false;
+
+        placedAircraft.forEach((other, oIdx) => {
+            if (idx === oIdx) return;
+            const otherBox = getACBox(other);
+            const distCenter = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
+            const actualGap = getGapBetweenBoxes(acBox, otherBox); // ระยะห่างจากขอบถึงขอบจริง
+
+            if (distCenter < jetLimit) isJetViolation = true;
+
+            // ตรวจสอบความปลอดภัยขณะจอดนิ่ง (Static) อิงตามระยะห่างจริง
+            if (actualGap < minReq) { 
+                staticSafe = false; 
+                if (other.mX < ac.mX) rightSafe = false; else leftSafe = false;
+                if (error === "") error = "ระยะจอดนิ่งไม่ปลอดภัย"; 
+            }
+
+            if (ac.swing) {
+                const wheelbase = Number(ac.Wheelbase) || (Number(ac.NoseToMainGear) * 0.75);
+                const turnR = wheelbase / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
+                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25) + minReq;
+                // ระยะจากจุดศูนย์กลางลำปัจจุบัน ถึง ขอบที่ใกล้ที่สุดของอีกลำ
+                let distToOtherBox = Infinity;
+                for(let i=0; i<4; i++) distToOtherBox = Math.min(distToOtherBox, distToSegment({x:ac.mX, y:ac.mY}, otherBox[i], otherBox[(i+1)%4]));
+
+                if (distToOtherBox < sweptR) {
+                    if (other.mX < ac.mX) rightSafe = false; else leftSafe = false;
+                }
+            }
+
+            if (idx === selectedIdx) {
+                if (other.mX >= ac.mX) { if (distCenter < minDistL) { minDistL = distCenter; nearL = other; } } 
+                else { if (distCenter < minDistR) { minDistR = distCenter; nearR = other; } }
+            }
+        });
+
+        if (ac.swing && isJetViolation) { leftSafe = false; rightSafe = false; error = "ห้ามเลี้ยว: อันตรายจาก Jet Blast"; }
+
+        if (idx === selectedIdx) {
+            [ {obj: nearL, side: "ซ้าย (Left)"}, {obj: nearR, side: "ขวา (Right)"} ].forEach(item => {
+                if (!item.obj && !(ac.swing && isJetViolation)) return;
+                const other = item.obj;
+                const otherBox = other ? getACBox(other) : null;
+                const actualGap = other ? getGapBetweenBoxes(acBox, otherBox) : 0;
+                
+                const wheelbase = Number(ac.Wheelbase) || (Number(ac.NoseToMainGear) * 0.75);
+                const turnR = wheelbase / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
+                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25) + minReq;
+                let distToOtherBox = Infinity;
+                if(other) for(let i=0; i<4; i++) distToOtherBox = Math.min(distToOtherBox, distToSegment({x:ac.mX, y:ac.mY}, otherBox[i], otherBox[(i+1)%4]));
+
+                let swingPass = ac.swing ? (distToOtherBox >= sweptR && !isJetViolation) : true;
+                let swingReason = distToOtherBox < sweptR ? "ปีกไม่พ้น" : (isJetViolation ? "Jet Blast" : "");
+
+                mathLog += `<div class="mt-3 p-3 rounded-2xl border bg-slate-800/80 border-slate-600 shadow-xl animate-fadeIn text-[10px]">`;
+                mathLog += `<p class="text-sky-400 font-black mb-2 border-b border-white/10 pb-1">ฝั่ง${item.side} vs ${other ? (findBestStand(other)?.StandID || other.Model) : 'N/A'}</p>`;
+                mathLog += `<p class="text-slate-400 font-bold uppercase text-[9px]">● Static Parking</p>`;
+                mathLog += `<div class="flex justify-between pl-2"><span>Gap จริง (ขอบ-ขอบ):</span> <span class="${actualGap >= minReq ? 'text-emerald-400':'text-red-400'}">${other ? actualGap.toFixed(2) : '-'} ม.</span></div>`;
+                mathLog += `<p class="text-slate-400 font-bold uppercase text-[9px] mt-2">● Dynamic Swing</p>`;
+                mathLog += `<div class="flex justify-between pl-2"><span>รัศมีปลอดภัย (R):</span> <span>${sweptR.toFixed(2)} ม.</span></div>`;
+                mathLog += `<div class="flex justify-between pl-2"><span>ระยะว่างจริง:</span> <span>${distToOtherBox === Infinity ? '-' : distToOtherBox.toFixed(2)} ม.</span></div>`;
+                mathLog += `<div class="flex justify-between pl-2 font-bold mt-1"><span>ผลลัพธ์:</span> <span class="${swingPass?'text-emerald-400':'text-red-400'}">${swingPass?'✅ พ้น':'⚠️ '+swingReason}</span></div></div>`;
+            });
+        }
+        ac.isSafe = staticSafe && leftSafe && rightSafe;
+        ac.leftSafe = leftSafe; ac.rightSafe = rightSafe;
+        ac.errorMsg = error || (!leftSafe || !rightSafe ? "ไม่ปลอดภัยสำหรับการเลี้ยว" : "");
+    });
+    document.getElementById('mathOutput').innerHTML = mathLog || '<p class="text-slate-500 italic text-[10px]">เลือกเครื่องบินเพื่อตรวจสอบพารามิเตอร์...</p>';
+    if (selectedIdx !== -1) updateInspector();
+}
+  ///////////////////////
 
  function animate() {
     ctx.clearRect(0, 0, canvas.width, canvas.height); checkSafety();
