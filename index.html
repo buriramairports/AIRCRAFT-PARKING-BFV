@@ -283,6 +283,9 @@ function checkSafety() {
         let rightSafe = true; 
         let error = "";
         
+        // ดึงระยะปลอดภัยจากมาตรฐาน (เช่น Code C = 4.5m)
+        const minReq = Number(safetySettings[ac.ICAO]) || 4.5;
+        
         let stand = findBestStand(ac);
         if (stand) {
             const noseY = ac.mY + (ac.Length / 2);
@@ -294,11 +297,11 @@ function checkSafety() {
             if (ac.ICAO.charCodeAt(0) > stand.MaxCode.charCodeAt(0)) { staticSafe = false; error = "เครื่องใหญ่เกินขนาดหลุม"; }
             if (stand.Status === 'closed') { staticSafe = false; error = "หลุมจอดปิดใช้งาน"; }
             
-            // --- จุดที่ 1: ตรวจสอบวงเลี้ยวเทียบกับขอบหลุม (Borders) ---
             if (ac.swing) {
-                const wheelbase = ac.Wheelbase || (ac.NoseToMainGear * 0.75); // ใช้ฐานล้อจริง
+                const wheelbase = Number(ac.Wheelbase) || (Number(ac.NoseToMainGear) * 0.75);
                 const turnR = wheelbase / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
-                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25); // อ้างอิงตำแหน่งปีก
+                // --- แก้ไข: รัศมีกวาด (sweptR) = รัศมีกายภาพ + ระยะปลอดภัย ---
+                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25) + minReq;
                 if (stand.LeftBorder && sweptR > Number(stand.LeftBorder)) leftSafe = false;
                 if (stand.RightBorder && sweptR > Number(stand.RightBorder)) rightSafe = false;
             }
@@ -315,7 +318,6 @@ function checkSafety() {
         placedAircraft.forEach((other, oIdx) => {
             if (idx === oIdx) return;
             const dist = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
-            const minReq = safetySettings[ac.ICAO] || 4.5;
             const clear = dist - (ac.WingSpan / 2 + other.WingSpan / 2);
             const isOtherOnLeftOfScreen = (other.mX < ac.mX); 
 
@@ -325,11 +327,10 @@ function checkSafety() {
                 if (error === "") error = "ระยะปีกอันตราย"; 
             }
 
-            // --- จุดที่ 2: ตรวจสอบวงเลี้ยวเทียบกับเครื่องลำข้างๆ ---
             if (ac.swing) {
-                const wheelbase = ac.Wheelbase || (ac.NoseToMainGear * 0.75);
+                const wheelbase = Number(ac.Wheelbase) || (Number(ac.NoseToMainGear) * 0.75);
                 const turnR = wheelbase / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
-                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25);
+                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25) + minReq;
                 const distToOtherBody = dist - (other.WingSpan / 2);
                 if (distToOtherBody < sweptR) {
                     if (isOtherOnLeftOfScreen) rightSafe = false; else leftSafe = false;
@@ -350,19 +351,19 @@ function checkSafety() {
                 const otherStand = findBestStand(other);
                 const otherRef = otherStand ? `Stand ${otherStand.StandID}` : other.Model;
                 
-                // --- จุดที่ 3: คำนวณเพื่อแสดงผลใน Math Panel ---
-                const wheelbase = ac.Wheelbase || (ac.NoseToMainGear * 0.75);
+                const wheelbase = Number(ac.Wheelbase) || (Number(ac.NoseToMainGear) * 0.75);
                 const turnR = wheelbase / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
-                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25);
+                // --- แก้ไข: รัศมีกวาด (sweptR) ที่แสดงผลจะรวมระยะปลอดภัยแล้ว ---
+                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25) + minReq;
                 const distToBody = dist - (other.WingSpan / 2);
-                const isClash = ac.swing ? (distToBody < sweptR) : (dist - (ac.WingSpan/2 + other.WingSpan/2) < (safetySettings[ac.ICAO]||4.5));
+                const isClash = ac.swing ? (distToBody < sweptR) : (dist - (ac.WingSpan/2 + other.WingSpan/2) < minReq);
 
                 mathLog += `<div class="mt-2 p-2 rounded-xl border ${isClash ? 'bg-red-900/40 border-red-500' : 'bg-emerald-900/30 border-emerald-500'} animate-fadeIn">`;
                 mathLog += `<p class="text-white font-black text-[10px] mb-1 uppercase">ใกล้ที่สุดฝั่ง${item.side} ➔ ${otherRef}</p>`;
                 mathLog += `<div class="grid grid-cols-2 gap-x-2 text-[10px]">`;
-                mathLog += `<span class="text-slate-400">รัศมีกวาด (R):</span> <span class="text-white text-right">${sweptR.toFixed(2)} ม.</span>`;
+                mathLog += `<span class="text-slate-400">รัศมีรวมระยะปลอดภัย (R):</span> <span class="text-white text-right">${sweptR.toFixed(2)} ม.</span>`;
                 mathLog += `<span class="text-slate-400">ระยะห่างถึงลำข้าง:</span> <span class="text-white text-right">${distToBody.toFixed(2)} ม.</span>`;
-                mathLog += `<span class="font-bold text-slate-300">สถานะ:</span> <span class="font-bold text-right ${isClash ? 'text-red-400' : 'text-emerald-400'}">${isClash ? '⚠️ ชน/อันตราย' : '✅ ปลอดภัย'}</span>`;
+                mathLog += `<span class="font-bold text-slate-300">สถานะ:</span> <span class="font-bold text-right ${isClash ? 'text-red-400' : 'text-emerald-400'}">${isClash ? '⚠️ ชน/ไม่พ้น' : '✅ ปลอดภัย'}</span>`;
                 mathLog += `</div></div>`;
             });
         }
