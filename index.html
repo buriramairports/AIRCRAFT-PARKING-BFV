@@ -320,7 +320,6 @@ function checkSafety() {
             const clear = dist - (ac.WingSpan / 2 + other.WingSpan / 2);
             const isOtherOnLeftOfScreen = (other.mX < ac.mX); 
 
-            // ตรวจสอบ Jet Blast (อิงจากระยะห่างกึ่งกลางลำ)
             if (dist < jetLimit) isJetViolation = true;
 
             if (clear < minReq) { 
@@ -345,10 +344,8 @@ function checkSafety() {
             }
         });
 
-        // --- หากละเมิด Jet Blast ให้บังคับแดง (เลี้ยวไม่ได้) ทั้งสองฝั่ง ---
         if (ac.swing && isJetViolation) {
-            leftSafe = false;
-            rightSafe = false;
+            leftSafe = false; rightSafe = false;
             error = "ห้ามเลี้ยว: อันตรายจาก Jet Blast";
         }
 
@@ -356,42 +353,42 @@ function checkSafety() {
             const absMinDist = Math.min(minDistL, minDistR);
             const jetColor = isJetViolation ? 'text-red-400' : 'text-emerald-400';
             mathLog += `<div class="mt-2 text-[10px] font-bold py-1 px-2 rounded bg-slate-800/50 border border-slate-700">`;
-            mathLog += `Jet Blast Limit: ${jetLimit.toFixed(1)} ม. | ใกล้ที่สุด: <span class="${jetColor}">${absMinDist === Infinity ? 'N/A' : absMinDist.toFixed(2)} ม.</span>`;
+            mathLog += `Jet Blast Limit: ${jetLimit.toFixed(1)} ม. | ระยะจริงใกล้สุด: <span class="${jetColor}">${absMinDist === Infinity ? 'N/A' : absMinDist.toFixed(2)} ม.</span>`;
             mathLog += `</div>`;
 
             [ {obj: nearL, side: "ซ้าย (Left)"}, {obj: nearR, side: "ขวา (Right)"} ].forEach(item => {
+                if (!item.obj && !(ac.swing && isJetViolation)) return;
+                
                 const other = item.obj;
-                let statusMsg = "✅ ปลอดภัย";
-                let isClash = false;
+                const wheelbase = Number(ac.Wheelbase) || (Number(ac.NoseToMainGear) * 0.75);
+                const turnR = wheelbase / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
+                const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25) + minReq;
+                
+                let distToBody = 999;
                 let reason = "";
+                let isClash = false;
 
                 if (other) {
                     const dist = Math.hypot(ac.mX - other.mX, ac.mY - other.mY);
-                    const wheelbase = Number(ac.Wheelbase) || (Number(ac.NoseToMainGear) * 0.75);
-                    const turnR = wheelbase / Math.tan((ac.SteeringAngle || 45) * Math.PI / 180);
-                    const sweptR = Math.hypot(turnR + ac.WingSpan / 2, ac.NoseToMainGear * 0.25) + minReq;
-                    const distToBody = dist - (other.WingSpan / 2);
-                    
+                    distToBody = dist - (other.WingSpan / 2);
                     if (ac.swing) {
                         if (distToBody < sweptR) { isClash = true; reason = "ปีกไม่พ้น"; }
-                        else if (isJetViolation) { isClash = true; reason = "JetBlast อันตราย"; }
-                    } else if (dist - (ac.WingSpan/2 + other.WingSpan/2) < minReq) {
-                        isClash = true; reason = "ระยะปีกอันตราย";
+                        else if (isJetViolation) { isClash = true; reason = "Jet Blast อันตราย"; }
                     }
                 } else if (ac.swing && isJetViolation) {
-                    // กรณีไม่มีเครื่องบินฝั่งนี้ แต่เลี้ยวไม่ได้เพราะ Jet Blast จากอีกฝั่ง
-                    isClash = true; reason = "JetBlast จากฝั่งตรงข้าม";
+                    isClash = true; reason = "Jet Blast ฝั่งตรงข้าม";
                 }
 
-                if (isClash) statusMsg = `⚠️ ${reason}`;
-                if (!other && !isClash) return; // ไม่แสดงถ้าไม่มีเครื่องและไม่มี Clash
+                const otherName = other ? (findBestStand(other) ? `Stand ${findBestStand(other).StandID}` : other.Model) : "ไม่มีเครื่องบิน";
+                const cardColor = isClash ? 'bg-red-900/40 border-red-500' : 'bg-emerald-900/30 border-emerald-500';
 
-                const otherName = other ? (findBestStand(other) ? `Stand ${findBestStand(other).StandID}` : other.Model) : "N/A";
-
-                mathLog += `<div class="mt-2 p-2 rounded-xl border ${isClash ? 'bg-red-900/40 border-red-500' : 'bg-emerald-900/30 border-emerald-500'} animate-fadeIn">`;
-                mathLog += `<p class="text-white font-black text-[10px] mb-1 uppercase">สถานะการเลี้ยว${item.side} ${other ? '➔ '+otherName : ''}</p>`;
-                mathLog += `<p class="text-right font-bold text-[10px] ${isClash ? 'text-red-400' : 'text-emerald-400'}">${statusMsg}</p>`;
-                mathLog += `</div>`;
+                mathLog += `<div class="mt-2 p-3 rounded-xl border ${cardColor} animate-fadeIn shadow-lg">`;
+                mathLog += `<p class="text-white font-black text-[10px] mb-1 uppercase">สถานะการเลี้ยว${item.side} ➔ ${otherName}</p>`;
+                mathLog += `<div class="grid grid-cols-2 gap-x-2 text-[10px] border-t border-white/10 pt-1">`;
+                mathLog += `<span class="text-slate-400">รัศมีปลอดภัย (R):</span> <span class="text-white text-right">${sweptR.toFixed(2)} ม.</span>`;
+                mathLog += `<span class="text-slate-400">ระยะจริงถึงลำข้าง:</span> <span class="text-white text-right">${distToBody === 999 ? '-' : distToBody.toFixed(2)} ม.</span>`;
+                mathLog += `<span class="font-bold text-slate-300">ผลสรุป:</span> <span class="font-bold text-right ${isClash ? 'text-red-400' : 'text-emerald-400'}">${isClash ? '⚠️ ' + reason : '✅ ปลอดภัย'}</span>`;
+                mathLog += `</div></div>`;
             });
         }
 
